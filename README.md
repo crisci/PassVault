@@ -24,6 +24,9 @@ To get started with the USB Key Password Manager:
 - **Updating Passwords:** Update passwords as needed for enhanced security.
 - **Cross-Device Access:** Access your passwords securely from any device with the USB key.
 
+## Activity Model ⚙️
+![alt text](https://github.com/crisci/PassVault/blob/main/activitymodel.png?raw=true)
+
 ## Contributing 🤝
 We welcome contributions from the community to enhance the USB Key Password Manager. Feel free to submit bug reports, feature requests, or pull requests to help improve the application.
 
