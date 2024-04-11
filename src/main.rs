@@ -3,10 +3,7 @@
 // [] create the password (symmetric key) and encrypt the pk and sk stored on the USB
 // [] decrypt the sk and check if the format is correct (PEM)
 use iced::{
-    alignment::{self},
-    font,
-    widget::{container, text},
-    Application, Command, Element, Length, Settings, Theme,
+    alignment, font, widget::{container, text}, window::Position, Application, Command, Element, Length, Settings, Size, Theme
 };
 
 use login::login;
@@ -18,7 +15,18 @@ mod login;
 mod utils;
 
 fn main() -> iced::Result {
-    ModalExample::run(Settings::default())
+    let settings: iced::Settings<()> = iced::Settings {
+        window: iced::window::Settings {
+            icon: iced::window::icon::from_file(format!("{}/resources/icon.png", env!("CARGO_MANIFEST_DIR"))).ok(),
+            position: Position::Centered,
+            size: Size::new(800., 600.),
+            min_size: Some(Size::new(475., 500.)),
+            ..iced::window::Settings::default()
+        },
+        id: Some("PassVault".to_string()),
+        ..Default::default()
+    };
+    ModalExample::run(settings)
 }
 
 #[derive(Clone, Debug)]
