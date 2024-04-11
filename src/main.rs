@@ -1,13 +1,12 @@
 // [] start and create the (pk, sk)
-// [] choose a device to store the pk
-// [] create the password (symmetric key) and encrypt the sk stored locally
+// [] choose a device to store the sk
+// [] create the password (symmetric key) and encrypt the pk and sk stored on the USB
 // [] decrypt the sk and check if the format is correct (PEM)
 use std::{fs::{self, File}, io::{BufReader, Read, Write}, path::PathBuf};
 
-use enums::{KeyStatus};
-use openssl::{error::Error, pkey::Private, rsa::Rsa};
+use enums::KeyStatus;
+use openssl::{pkey::Private, rsa::Rsa};
 use rand::{thread_rng, Rng};
-use base64::{engine::general_purpose, Engine};
 
 mod enums;
 
