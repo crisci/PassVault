@@ -4,15 +4,18 @@
 // [] decrypt the sk and check if the format is correct (PEM)
 use iced::{
     alignment::{self},
+    font,
     widget::{container, text},
-    Application, Command, Element, Length, Settings, Theme, font, 
+    Application, Command, Element, Length, Settings, Theme,
 };
 
 use login::login;
 
-mod login;
-mod enums;
+use crate::utils::utils::{pad16, pad32};
 
+mod enums;
+mod login;
+mod utils;
 
 fn main() -> iced::Result {
     ModalExample::run(Settings::default())
@@ -38,7 +41,7 @@ enum ModalExample {
 pub struct State {
     theme: Theme,
     password: String,
-    confirm_password: String
+    confirm_password: String,
 }
 
 async fn load() -> Result<(), String> {
@@ -72,14 +75,18 @@ impl Application for ModalExample {
                     *self = ModalExample::Loaded(State::default())
                 }
             }
-            ModalExample::Loaded(state) => {
-                match message {
-                    Message::PasswordChanged(password) => state.password = password,
-                    Message::ConfirmPasswordChanged(password) => state.confirm_password = password,
-                    Message::SavePassword => if state.password == state.confirm_password {println!("Equal!")} else {println!("Not Equal!")}
-                    _ => {}
+            ModalExample::Loaded(state) => match message {
+                Message::PasswordChanged(password) => state.password = password,
+                Message::ConfirmPasswordChanged(password) => state.confirm_password = password,
+                Message::SavePassword => {
+                    if state.password == state.confirm_password {
+                        println!("Equal: {}", pad16(&state.password))
+                    } else {
+                        println!("Not Equal: {}", pad32(&state.password))
+                    }
                 }
-            }
+                _ => {}
+            },
         }
 
         Command::none()
@@ -97,8 +104,7 @@ impl Application for ModalExample {
             .center_y()
             .center_x()
             .into(),
-            ModalExample::Loaded(state) =>  login(state)
-            
+            ModalExample::Loaded(state) => login(state),
         }
     }
 
