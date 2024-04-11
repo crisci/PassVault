@@ -1,4 +1,7 @@
-
+// [] start and create the (pk, sk)
+// [] choose a device to store the pk
+// [] create the password (symmetric key) and encrypt the sk stored locally
+// [] decrypt the sk and check if the format is correct (PEM)
 use std::{fs::{self, File}, io::{BufReader, Read, Write}, path::PathBuf};
 
 use enums::{KeyStatus};
