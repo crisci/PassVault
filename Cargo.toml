@@ -10,3 +10,5 @@ openssl = { version = "0.10", features = ["vendored"]}
 base64 = "0.22.0" 
 rand = "0.8.5"
 directories = "5.0.1"
+iced = "0.12.1"
+iced_aw = "0.8.0"
