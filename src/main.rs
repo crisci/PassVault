@@ -1,3 +1,5 @@
+use std::env;
+
 // [] start and create the (pk, sk)
 // [] choose a device to store the sk
 // [] create the password (symmetric key) and encrypt the pk and sk stored on the USB
@@ -11,6 +13,7 @@ use iced::{
 
 use login::login;
 use step::step::{Step, Steps};
+use utils::generate_key_pair;
 
 use crate::utils::utils::{pad16, pad32};
 
@@ -20,6 +23,9 @@ mod step;
 mod utils;
 
 fn main() -> iced::Result {
+    generate_key_pair("LuigiCrisci-".to_string());
+    todo!();
+    env::set_var("RUST_BACKTRACE", "1");
     let settings: iced::Settings<()> = iced::Settings {
         window: iced::window::Settings {
             icon: iced::window::icon::from_file(format!(
@@ -151,7 +157,7 @@ fn view_logic(state: &State) -> Element<'static, Message> {
     let content = match state.step {
         Steps::Login => login(&state),
         Steps::Welcome => welcome(),
-        Steps::SecretKeyLocation => sk_location(),
+        Steps::SecretKeyLocation => sk_location(state),
     };
     Container::new(column![
         content,
@@ -182,7 +188,8 @@ fn welcome() -> Element<'static, Message> {
     .into()
 }
 
-fn sk_location() -> Element<'static, Message> {
+fn sk_location(state: &State) -> Element<'static, Message> {
+    generate_key_pair(state.password.clone());
     Container::new(column![
         text("Warning!").size(50),
         text("Now it's time to decide the location of the secret key which allow to decrypt your passwords.").size(26)
