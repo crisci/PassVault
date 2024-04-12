@@ -10,7 +10,7 @@ impl KeyStatus {
         return match self {
             Self::CREATED(bytes) => Some(bytes),
             Self::ERROR => None,
-            Self::PRESENT(bytes) => Some(bytes)
-        }
+            Self::PRESENT(bytes) => Some(bytes),
+        };
     }
 }

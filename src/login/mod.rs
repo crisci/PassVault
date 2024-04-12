@@ -1,4 +1,9 @@
-use iced::{alignment::Horizontal, color, theme, widget::{container, svg, Button, Column, Container, Row, TextInput}, Alignment, Length, Renderer};
+use iced::{
+    alignment::Horizontal,
+    color, theme,
+    widget::{container, svg, Button, Column, Container, Row, TextInput},
+    Alignment, Length, Renderer,
+};
 
 use crate::Message;
 use iced::widget::text;
@@ -10,10 +15,14 @@ pub fn login(state: &State) -> Element<'static, Message> {
     Container::new(
         Column::new()
             .align_items(Alignment::Center)
-            .max_width(400)
+            .max_width(600)
             .padding(20)
             .spacing(16)
-            .push(text("Create your password").size(20).horizontal_alignment(Horizontal::Left))
+            .push(
+                text("Create your password")
+                    .size(50)
+                    .horizontal_alignment(Horizontal::Left),
+            )
             .push(
                 TextInput::new("Password", &state.password)
                     .on_input(Message::PasswordChanged)
@@ -29,10 +38,9 @@ pub fn login(state: &State) -> Element<'static, Message> {
                     .secure(true),
             )
             .push(
-                container(
-                    Button::new(text("Confirm")).on_press(Message::SavePassword)
-                ).align_x(Horizontal::Right)
-                .width(Length::Fill)
+                container(Button::new(text("Confirm")).on_press(Message::SavePassword))
+                    .align_x(Horizontal::Right)
+                    .width(Length::Fill),
             ),
     )
     .width(Length::Fill)
@@ -50,6 +58,6 @@ fn load_image<'a>(image_name: String) -> Container<'a, Message> {
     ));
 
     let svg = svg(handle).width(Length::Fill).height(Length::Fill);
-    
+
     container(svg).width(300).height(300).center_x().center_y()
 }
