@@ -9,7 +9,8 @@ pub mod step {
         Welcome,
         Login,
         SecretKeyLocation,
-        PasswordManager
+        PasswordManager,
+        UnlockWallet
     }
 
     impl Default for Steps {
@@ -25,6 +26,7 @@ pub mod step {
                 Self::Login => Self::Login,
                 Self::SecretKeyLocation => Self::SecretKeyLocation,
                 Steps::PasswordManager => Self::PasswordManager,
+                Steps::UnlockWallet => Self::UnlockWallet,
             }
         }
     }
@@ -46,6 +48,7 @@ pub mod step {
                 Steps::Login => true,
                 Steps::SecretKeyLocation => true,
                 Steps::PasswordManager => false,
+                Steps::UnlockWallet => true
             }
         }
     }

@@ -206,3 +206,22 @@ pub fn get_keys(symmetric_key: &String) -> Result<(String, String), String> {
     Err("Unable to find key".to_owned())
 
 }
+
+pub fn is_pk_key_created() -> bool {
+    let dir = match directories::BaseDirs::new() {
+        Some(dir) => dir,
+        None => return false
+    };
+    let dir_str = match dir.data_local_dir().to_str() {
+        Some(s) => s,
+        None => return false,
+    };
+
+    let keys_dir = PathBuf::from(format!(
+        "{}/{}",
+        dir_str,
+        "PassVault"
+    ));
+    let pk_path = keys_dir.join("secret_key.pem");
+    pk_path.exists()
+}

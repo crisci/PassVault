@@ -50,6 +50,41 @@ pub fn login(state: &State) -> Element<'static, Message> {
     .into()
 }
 
+pub fn unlock_wallet(state: &State) -> Element<'static, Message> {
+    Container::new(
+        Column::new()
+            .align_items(Alignment::Center)
+            .max_width(600)
+            .padding(20)
+            .spacing(16)
+            .push(
+                text("Insert your password")
+                    .size(50)
+                    .horizontal_alignment(Horizontal::Left),
+            )
+            .push(
+                TextInput::new("Password", &state.password)
+                    .on_input(Message::PasswordChanged)
+                    .padding(10)
+                    .size(18)
+                    .secure(true),
+            )
+            .push(
+                container(Button::new(text("Confirm")).on_press(Message::UnlockWallet))
+                    .align_x(Horizontal::Right)
+                    .width(Length::Fill),
+            ),
+    )
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_y()
+    .center_x()
+    .into()
+} 
+
+
+
+
 fn load_image<'a>(image_name: String) -> Container<'a, Message> {
     let handle = svg::Handle::from_path(format!(
         "{}/resources/{}.svg",

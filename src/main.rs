@@ -11,9 +11,9 @@ use iced::{
     Application, Command, Element, Length, Settings, Size, Theme,
 };
 
-use login::login;
+use login::{login, unlock_wallet};
 use step::step::{Step, Steps};
-use utils::{generate_key_pair, get_keys};
+use utils::{generate_key_pair, get_keys, is_pk_key_created};
 
 use crate::utils::utils::{pad16, pad32};
 
@@ -51,6 +51,7 @@ enum Message {
     Loaded(Result<(), String>),
     FontLoaded(Result<(), font::Error>),
     Start,
+    UnlockWallet
 }
 
 #[derive(Debug)]
@@ -65,6 +66,7 @@ pub struct State {
     password: String,
     confirm_password: String,
     step: Steps,
+    public_key: Option<String>
 }
 
 async fn load() -> Result<(), String> {
@@ -88,14 +90,18 @@ impl Application for ModalExample {
     }
 
     fn title(&self) -> String {
-        String::from("Modal example")
+        String::from("PassVault")
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Message> {
         match self {
             ModalExample::Loading => {
                 if let Message::Loaded(_) = message {
-                    *self = ModalExample::Loaded(State::default())
+
+                    *self = match is_pk_key_created() {
+                        true => ModalExample::Loaded(State {step: Steps::UnlockWallet, ..Default::default()}),
+                        false => ModalExample::Loaded(State::default())
+                    }
                 }
             }
             ModalExample::Loaded(state) => match message {
@@ -109,7 +115,20 @@ impl Application for ModalExample {
                     {
                         println!("Weak password!")
                     } else {
+                        generate_key_pair(&state.password);
                         state.step = Steps::PasswordManager
+                    }
+                },
+                Message::UnlockWallet => {
+                    //TODO: check if the password is correct -> try decrypt
+                    state.public_key = match get_keys(&state.password) {
+                        Ok((pk, _)) => Some(pk),
+                        Err(_) => None,
+                    };
+                    if state.public_key.is_none() {
+                        println!("Wrong password!");
+                    } else {
+                        state.step = Steps::PasswordManager;
                     }
                 }
                 Message::Start => state.step = Steps::Login,
@@ -152,12 +171,14 @@ fn view_logic(state: &State) -> Element<'static, Message> {
         Steps::Login => row![],
         Steps::SecretKeyLocation => row![],
         Steps::PasswordManager => row![],
+        Steps::UnlockWallet => row![]
     };
     let content = match state.step {
         Steps::Login => login(&state),
         Steps::Welcome => welcome(),
         Steps::SecretKeyLocation => sk_location(state),
-        Steps::PasswordManager => password_manager(state)
+        Steps::PasswordManager => password_manager(state),
+        Steps::UnlockWallet => unlock_wallet(state)
     };
     Container::new(column![
         content,
@@ -201,10 +222,6 @@ fn sk_location(state: &State) -> Element<'static, Message> {
 }
 
 fn password_manager(state: &State) -> Element<'static, Message> {
-    match get_keys(&state.password) {
-        Ok((pk, sk)) => {println!("{}\n\n\n{}", pk, sk)},
-        Err(_) => generate_key_pair(&state.password),
-    } //TODO: Remove it
     Container::new(
         column![text("Your keys are correctly saved!").size(50),
     ].align_items(iced::Alignment::Center))
@@ -214,3 +231,4 @@ fn password_manager(state: &State) -> Element<'static, Message> {
             .center_x()
             .into()
 }
+
