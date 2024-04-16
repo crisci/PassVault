@@ -9,6 +9,7 @@ pub mod step {
         Welcome,
         Login,
         SecretKeyLocation,
+        PasswordManager
     }
 
     impl Default for Steps {
@@ -23,6 +24,7 @@ pub mod step {
                 Self::Welcome => Self::Welcome,
                 Self::Login => Self::Login,
                 Self::SecretKeyLocation => Self::SecretKeyLocation,
+                Steps::PasswordManager => Self::PasswordManager,
             }
         }
     }
@@ -42,7 +44,8 @@ pub mod step {
             match self.current {
                 Steps::Welcome => true,
                 Steps::Login => true,
-                Steps::SecretKeyLocation => false,
+                Steps::SecretKeyLocation => true,
+                Steps::PasswordManager => false,
             }
         }
     }

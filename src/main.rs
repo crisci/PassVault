@@ -13,7 +13,7 @@ use iced::{
 
 use login::login;
 use step::step::{Step, Steps};
-use utils::generate_key_pair;
+use utils::{generate_key_pair, get_keys};
 
 use crate::utils::utils::{pad16, pad32};
 
@@ -23,8 +23,6 @@ mod step;
 mod utils;
 
 fn main() -> iced::Result {
-    generate_key_pair("LuigiCrisci-".to_string());
-    todo!();
     env::set_var("RUST_BACKTRACE", "1");
     let settings: iced::Settings<()> = iced::Settings {
         window: iced::window::Settings {
@@ -111,7 +109,7 @@ impl Application for ModalExample {
                     {
                         println!("Weak password!")
                     } else {
-                        state.step = Steps::SecretKeyLocation
+                        state.step = Steps::PasswordManager
                     }
                 }
                 Message::Start => state.step = Steps::Login,
@@ -153,11 +151,13 @@ fn view_logic(state: &State) -> Element<'static, Message> {
             .on_press(Message::Start)],
         Steps::Login => row![],
         Steps::SecretKeyLocation => row![],
+        Steps::PasswordManager => row![],
     };
     let content = match state.step {
         Steps::Login => login(&state),
         Steps::Welcome => welcome(),
         Steps::SecretKeyLocation => sk_location(state),
+        Steps::PasswordManager => password_manager(state)
     };
     Container::new(column![
         content,
@@ -189,10 +189,24 @@ fn welcome() -> Element<'static, Message> {
 }
 
 fn sk_location(state: &State) -> Element<'static, Message> {
-    generate_key_pair(state.password.clone());
     Container::new(column![
         text("Warning!").size(50),
         text("Now it's time to decide the location of the secret key which allow to decrypt your passwords.").size(26)
+    ].align_items(iced::Alignment::Center))
+            .width(Length::Fill)
+            .height(Length::Shrink)
+            .center_y()
+            .center_x()
+            .into()
+}
+
+fn password_manager(state: &State) -> Element<'static, Message> {
+    match get_keys(&state.password) {
+        Ok((pk, sk)) => {println!("{}\n\n\n{}", pk, sk)},
+        Err(_) => generate_key_pair(&state.password),
+    } //TODO: Remove it
+    Container::new(
+        column![text("Your keys are correctly saved!").size(50),
     ].align_items(iced::Alignment::Center))
             .width(Length::Fill)
             .height(Length::Shrink)
