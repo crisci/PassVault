@@ -1,22 +1,28 @@
 use std::env;
 
+use circle_button::circle_button::CircleButtonStyle;
 // [] start and create the (pk, sk)
 // [] choose a device to store the sk
 // [] create the password (symmetric key) and encrypt the pk and sk stored on the USB
 // [] decrypt the sk and check if the format is correct (PEM)
 use iced::{
-    alignment, font,
-    widget::{button, column, container, row, text, Container, Row},
+    alignment, font, theme,
+    widget::{button, column, container, row, text, Button, Container, Row, Text},
     window::Position,
     Application, Command, Element, Length, Settings, Size, Theme,
 };
 
+use iced_aw::floating_element::Anchor;
+use iced_aw::{helpers::floating_element, BOOTSTRAP_FONT};
 use login::{login, unlock_wallet};
 use step::step::{Step, Steps};
 use utils::{generate_key_pair, get_keys, is_pk_key_created};
 
 use crate::utils::utils::{pad16, pad32};
+use data_struct::account::account::Account;
 
+mod circle_button;
+mod data_struct;
 mod enums;
 mod login;
 mod step;
@@ -51,7 +57,9 @@ enum Message {
     Loaded(Result<(), String>),
     FontLoaded(Result<(), font::Error>),
     Start,
-    UnlockWallet
+    UnlockWallet,
+    AddAccount,
+    None,
 }
 
 #[derive(Debug)]
@@ -66,7 +74,7 @@ pub struct State {
     password: String,
     confirm_password: String,
     step: Steps,
-    public_key: Option<String>
+    public_key: Option<String>,
 }
 
 async fn load() -> Result<(), String> {
@@ -97,10 +105,12 @@ impl Application for ModalExample {
         match self {
             ModalExample::Loading => {
                 if let Message::Loaded(_) = message {
-
                     *self = match is_pk_key_created() {
-                        true => ModalExample::Loaded(State {step: Steps::UnlockWallet, ..Default::default()}),
-                        false => ModalExample::Loaded(State::default())
+                        true => ModalExample::Loaded(State {
+                            step: Steps::UnlockWallet,
+                            ..Default::default()
+                        }),
+                        false => ModalExample::Loaded(State::default()),
                     }
                 }
             }
@@ -111,14 +121,14 @@ impl Application for ModalExample {
                     if state.password != state.confirm_password {
                         println!("Password not match!")
                     } else if state.password.len() < 8
-                            || state.password.chars().all(char::is_alphanumeric)
+                        || state.password.chars().all(char::is_alphanumeric)
                     {
                         println!("Weak password!")
                     } else {
                         generate_key_pair(&state.password);
                         state.step = Steps::PasswordManager
                     }
-                },
+                }
                 Message::UnlockWallet => {
                     //TODO: check if the password is correct -> try decrypt
                     state.public_key = match get_keys(&state.password) {
@@ -171,14 +181,14 @@ fn view_logic(state: &State) -> Element<'static, Message> {
         Steps::Login => row![],
         Steps::SecretKeyLocation => row![],
         Steps::PasswordManager => row![],
-        Steps::UnlockWallet => row![]
+        Steps::UnlockWallet => row![],
     };
     let content = match state.step {
         Steps::Login => login(&state),
         Steps::Welcome => welcome(),
         Steps::SecretKeyLocation => sk_location(state),
         Steps::PasswordManager => password_manager(state),
-        Steps::UnlockWallet => unlock_wallet(state)
+        Steps::UnlockWallet => unlock_wallet(state),
     };
     Container::new(column![
         content,
@@ -222,13 +232,54 @@ fn sk_location(state: &State) -> Element<'static, Message> {
 }
 
 fn password_manager(state: &State) -> Element<'static, Message> {
-    Container::new(
-        column![text("Your keys are correctly saved!").size(50),
-    ].align_items(iced::Alignment::Center))
-            .width(Length::Fill)
-            .height(Length::Shrink)
-            .center_y()
-            .center_x()
-            .into()
-}
+    let account = Account::new(String::from("Windows"), String::from("value"), String::from("password"));
+    let content = floating_element(
+        Container::new(column![
+            row![text("Your keys!").size(50)].align_items(iced::Alignment::Start),
+            row![account_widget(account)].align_items(iced::Alignment::Start)
+        ])
+        .width(Length::Fill)
+        .height(Length::Fill),
+        Button::new(
+            Text::new("ADD")
+                .font(BOOTSTRAP_FONT)
+                .size(20)
+                .line_height(1.0)
+                .shaping(text::Shaping::Advanced),
+        )
+        .on_press(Message::AddAccount)
+        .padding(5)
+        .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
+            theme::Button::Primary,
+        )))),
+    )
+    .anchor(Anchor::SouthEast)
+    .offset(20.0)
+    .hide(false);
 
+    Container::new(content)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .padding(10)
+        .center_x()
+        .center_y()
+        .into()
+}
+fn account_widget(account: Account) -> Element<'static, Message> {
+    Container::new(row![
+        column![
+            row![text(account.get_host())],
+            row![text(account.get_username())]
+        ],
+        column![
+            Button::new(Text::new("Delete").font(BOOTSTRAP_FONT)
+            .size(20)
+            .line_height(1.0)
+            .shaping(text::Shaping::Advanced)).on_press(Message::AddAccount)
+        .padding(5)
+        .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
+            theme::Button::Secondary,
+        ))))
+        ]
+    ]).into()
+}
