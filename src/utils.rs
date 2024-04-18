@@ -147,6 +147,8 @@ fn locate_keys(pk: String, sk: String) -> Result<(), String> {
     let sk_path = new_dir.join("secret_key.pem");
     let pk_path = new_dir.join("public_key.pem");
 
+    println!("{:?}", new_dir);
+
     if !new_dir.exists() {
         fs::create_dir_all(&new_dir).map_err(|err| format!("Error creating directory: {}", err))?;
         // First time creation
@@ -155,6 +157,8 @@ fn locate_keys(pk: String, sk: String) -> Result<(), String> {
 
         sk_file.write_all(sk.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
         pk_file.write_all(pk.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
+
+        println!("key created at {}", new_dir.to_str().unwrap());
         
     }
 
@@ -222,6 +226,6 @@ pub fn is_pk_key_created() -> bool {
         dir_str,
         "PassVault"
     ));
-    let pk_path = keys_dir.join("secret_key.pem");
+    let pk_path = keys_dir.join("public_key.pem");
     pk_path.exists()
 }

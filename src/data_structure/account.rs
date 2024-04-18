@@ -1,4 +1,6 @@
 pub mod account {
+    
+    #[derive(Debug, Clone, Default)]
     pub struct Account {
         host: String, 
         username: String,

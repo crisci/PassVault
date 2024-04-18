@@ -1,15 +1,13 @@
 use std::env;
 
 use circle_button::circle_button::CircleButtonStyle;
+use custom_widget::card::card::Card;
 // [] start and create the (pk, sk)
 // [] choose a device to store the sk
 // [] create the password (symmetric key) and encrypt the pk and sk stored on the USB
 // [] decrypt the sk and check if the format is correct (PEM)
 use iced::{
-    alignment, font, theme,
-    widget::{button, column, container, row, text, Button, Container, Row, Text},
-    window::Position,
-    Application, Command, Element, Length, Settings, Size, Theme,
+    alignment, font, theme, widget::{button, column, container, row, scrollable, shader::wgpu::naga::proc::index, text, Button, Column, Container, Row, Text}, window::Position, Application, Color, Command, Element, Length, Padding, Settings, Size, Theme
 };
 
 use iced_aw::floating_element::Anchor;
@@ -19,14 +17,15 @@ use step::step::{Step, Steps};
 use utils::{generate_key_pair, get_keys, is_pk_key_created};
 
 use crate::utils::utils::{pad16, pad32};
-use data_struct::account::account::Account;
+use data_structure::account::account::Account;
 
 mod circle_button;
-mod data_struct;
+mod data_structure;
 mod enums;
 mod login;
 mod step;
 mod utils;
+mod custom_widget;
 
 fn main() -> iced::Result {
     env::set_var("RUST_BACKTRACE", "1");
@@ -39,7 +38,7 @@ fn main() -> iced::Result {
             .ok(),
             position: Position::Centered,
             size: Size::new(800., 600.),
-            min_size: Some(Size::new(475., 500.)),
+            min_size: Some(Size::new(600., 600.)),
             ..iced::window::Settings::default()
         },
         id: Some("PassVault".to_string()),
@@ -59,6 +58,7 @@ enum Message {
     Start,
     UnlockWallet,
     AddAccount,
+    DeleteAccount(usize),
     None,
 }
 
@@ -140,7 +140,10 @@ impl Application for ModalExample {
                     } else {
                         state.step = Steps::PasswordManager;
                     }
-                }
+                },
+                Message::DeleteAccount(index) => {
+                    println!("Delete account at index: {}", index);
+                },
                 Message::Start => state.step = Steps::Login,
                 _ => {}
             },
@@ -233,13 +236,23 @@ fn sk_location(state: &State) -> Element<'static, Message> {
 
 fn password_manager(state: &State) -> Element<'static, Message> {
     let account = Account::new(String::from("Windows"), String::from("value"), String::from("password"));
+    let accoumts = Vec::from([account, Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value"))]);
+    let mut account_list: Column<'static, Message> = Column::new();
+    for (index, account) in accoumts.iter().enumerate() {
+        account_list = account_list.push(
+            row![account_widget(account.clone(), index)].padding(2.)
+        );
+    }
     let content = floating_element(
-        Container::new(column![
+        Container::new(scrollable(
+            column![
             row![text("Your keys!").size(50)].align_items(iced::Alignment::Start),
-            row![account_widget(account)].align_items(iced::Alignment::Start)
-        ])
+            row![account_list].align_items(iced::Alignment::Start)
+        ]
+        .align_items(iced::Alignment::Center)
         .width(Length::Fill)
-        .height(Length::Fill),
+        ))
+        .width(Length::Fill),
         Button::new(
             Text::new("ADD")
                 .font(BOOTSTRAP_FONT)
@@ -253,8 +266,8 @@ fn password_manager(state: &State) -> Element<'static, Message> {
             theme::Button::Primary,
         )))),
     )
-    .anchor(Anchor::SouthEast)
-    .offset(20.0)
+    .anchor(Anchor::South)
+    .offset(10.0)
     .hide(false);
 
     Container::new(content)
@@ -265,21 +278,27 @@ fn password_manager(state: &State) -> Element<'static, Message> {
         .center_y()
         .into()
 }
-fn account_widget(account: Account) -> Element<'static, Message> {
+
+fn account_widget(account: Account, index: usize) -> Element<'static, Message> {
+
     Container::new(row![
         column![
-            row![text(account.get_host())],
-            row![text(account.get_username())]
-        ],
+            row![text(account.get_host()).size(30)],
+            row![text(account.get_username()).size(25)]
+        ].width(Length::FillPortion(2)),
         column![
             Button::new(Text::new("Delete").font(BOOTSTRAP_FONT)
             .size(20)
             .line_height(1.0)
-            .shaping(text::Shaping::Advanced)).on_press(Message::AddAccount)
+            .shaping(text::Shaping::Advanced)).on_press(Message::DeleteAccount(index))
         .padding(5)
         .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
             theme::Button::Secondary,
         ))))
-        ]
-    ]).into()
+        ].width(Length::FillPortion(1)).align_items(iced::Alignment::End)
+    ])
+    .padding(Padding::new(8.))
+    .width(600.)
+    .max_width(800.)
+    .style(iced::theme::Container::Custom(Box::new(Card::new(iced::Background::Color(Color::from_rgb(0.8, 0.8, 0.8)))))).into()
 }
