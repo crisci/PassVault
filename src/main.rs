@@ -17,8 +17,8 @@ use login::{login, unlock_wallet};
 use step::step::{Step, Steps};
 use utils::{generate_key_pair, get_keys, is_pk_key_created};
 
-use crate::utils::utils::{pad16, pad32};
-use data_structure::account::account::Account;
+use crate::utils::{decrypt_data, utils::{pad16, pad32}};
+use data_structure::account::account::{serialize_accounts, Account};
 
 mod circle_button;
 mod data_structure;
@@ -84,6 +84,7 @@ pub struct State {
     password: String,
     confirm_password: String,
     step: Steps,
+    symm: String,
     accounts: Vec<Account>,
     public_key: Option<String>,
     show_password: Option<usize>,
@@ -152,10 +153,12 @@ impl Application for ModalExample {
                         Ok((pk, _)) => Some(pk),
                         Err(_) => None,
                     };
-                    state.password.clear();
                     if state.public_key.is_none() {
                         println!("Wrong password!");
                     } else {
+                        state.symm = state.password.clone();
+                        println!("{:?}", decrypt_data(&state.symm));
+                        state.password.clear();
                         state.step = Steps::PasswordManager;
                     }
                 },
@@ -216,6 +219,8 @@ impl Application for ModalExample {
                     state.confirm_password.clear();
                     
                     state.accounts.push(new_account);
+
+                    serialize_accounts(&state.accounts, &state.symm);
                     
                     state.modal = None;
                 },

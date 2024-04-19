@@ -1,6 +1,13 @@
 pub mod account {
     
-    #[derive(Debug, Clone, Default)]
+
+    use std::{fmt::format, fs::{self, File}, io::Write, path::PathBuf};
+
+    use serde::{Serialize, Deserialize};
+
+    use crate::utils::encrypt_data;
+
+    #[derive(Debug, Clone, Default, Serialize, Deserialize)]
     pub struct Account {
         host: String, 
         username: String,
@@ -35,10 +42,25 @@ pub mod account {
             self.key = key
         }
         
-            
     }
 
     pub fn decrypt_key(sk: String) -> String {
         String::from("Decrypted")
     }
+
+    pub fn serialize_accounts(accounts: &Vec<Account>, symmetric_key: &String) -> Result<(), String> {
+        let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
+        let new_dir = PathBuf::from(format!("{}/{}", dir.data_local_dir().to_str().ok_or("Error getting data local dir")?, "PassVault"));
+        let file_path = new_dir.join("accounts.config");
+        
+        if !new_dir.exists() {
+            fs::create_dir_all(&new_dir).map_err(|err| format!("Error creating directory: {}", err))?;
+        } 
+        let mut file = File::create(&file_path).map_err(|err| format!("Error creating file: {}", err))?;
+        let serialized = serde_json::to_string(accounts).map_err(|err| format!("Serialization error: {}", err))?;
+        let serialized_enc = encrypt_data(&serialized, symmetric_key).unwrap();
+        file.write_all(serialized_enc.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
+        Ok(())
+    }
+
 }
