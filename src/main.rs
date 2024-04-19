@@ -1,13 +1,13 @@
 use std::env;
 
 use circle_button::circle_button::CircleButtonStyle;
-use custom_widget::card::card::Card;
+use custom_widget::{card::card::Card, image_button::{self, image_button::image_button}};
 // [] start and create the (pk, sk)
 // [] choose a device to store the sk
 // [] create the password (symmetric key) and encrypt the pk and sk stored on the USB
 // [] decrypt the sk and check if the format is correct (PEM)
 use iced::{
-    alignment, font, theme, widget::{button, column, container, row, scrollable, shader::wgpu::naga::proc::index, text, Button, Column, Container, Row, Text}, window::Position, Application, Color, Command, Element, Length, Padding, Settings, Size, Theme
+    alignment, font, theme, widget::{button, column, container, row, scrollable, shader::wgpu::naga::proc::index, text, Button, Column, Container, Row, Text}, window::Position, Alignment, Application, Color, Command, Element, Font, Length, Padding, Settings, Size, Theme
 };
 
 use iced_aw::floating_element::Anchor;
@@ -59,6 +59,10 @@ enum Message {
     UnlockWallet,
     AddAccount,
     DeleteAccount(usize),
+    ShowPassword(usize),
+    HidePassword,
+    EditAccount(usize),
+    CopyAccount(usize),
     None,
 }
 
@@ -74,7 +78,9 @@ pub struct State {
     password: String,
     confirm_password: String,
     step: Steps,
+    accounts: Vec<Account>,
     public_key: Option<String>,
+    show_password: Option<usize>,
 }
 
 async fn load() -> Result<(), String> {
@@ -107,6 +113,7 @@ impl Application for ModalExample {
                 if let Message::Loaded(_) = message {
                     *self = match is_pk_key_created() {
                         true => ModalExample::Loaded(State {
+                            accounts: Vec::from([Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password")), Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password"))]),
                             step: Steps::UnlockWallet,
                             ..Default::default()
                         }),
@@ -142,9 +149,29 @@ impl Application for ModalExample {
                     }
                 },
                 Message::DeleteAccount(index) => {
+                    state.accounts.remove(index);
+                    //TODO: Save to json file encrypted
                     println!("Delete account at index: {}", index);
                 },
                 Message::Start => state.step = Steps::Login,
+                Message::ShowPassword(index) => {
+                    state.show_password = Some(index);
+                    println!("Show password at index: {}", index);
+                },
+                Message::HidePassword => {
+                    state.show_password = None;
+                    println!("Hide password");
+                },
+                Message::CopyAccount(index) => {
+                    println!("Copy account at index: {}", index);
+                },
+                Message::EditAccount(index) => {
+                    println!("Edit account at index: {}", index);
+                },
+                Message::AddAccount => {
+                    state.accounts.push(Account::new(String::from("New Account"), String::from("username"), String::from("password")));
+                    println!("Add account");
+                },
                 _ => {}
             },
         }
@@ -235,30 +262,49 @@ fn sk_location(state: &State) -> Element<'static, Message> {
 }
 
 fn password_manager(state: &State) -> Element<'static, Message> {
-    let account = Account::new(String::from("Windows"), String::from("value"), String::from("password"));
-    let accoumts = Vec::from([account, Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value")), Account::new(String::from("value"), String::from("value"), String::from("value"))]);
+
     let mut account_list: Column<'static, Message> = Column::new();
-    for (index, account) in accoumts.iter().enumerate() {
+    for (index, account) in state.accounts.iter().enumerate() {
         account_list = account_list.push(
-            row![account_widget(account.clone(), index)].padding(2.)
+            row![account_widget(account.clone(), index, &state)].padding(2.)
         );
     }
-    let content = floating_element(
-        Container::new(scrollable(
-            column![
+
+    let main_content = if state.accounts.len() > 4 {
+        Container::new(scrollable( column![
             row![text("Your keys!").size(50)].align_items(iced::Alignment::Start),
             row![account_list].align_items(iced::Alignment::Start)
         ]
         .align_items(iced::Alignment::Center)
-        .width(Length::Fill)
-        ))
-        .width(Length::Fill),
+        .width(Length::Fill)))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(10)
+    } else {
+        Container::new(column![
+            row![text("Your keys!").size(50)].align_items(iced::Alignment::Start),
+            row![account_list].align_items(iced::Alignment::Start)
+        ]
+        .align_items(iced::Alignment::Center)
+        .width(Length::Fill))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(10)
+    };
+    
+    let content = floating_element(
+       main_content,
         Button::new(
-            Text::new("ADD")
-                .font(BOOTSTRAP_FONT)
-                .size(20)
+                container(
+                    Text::new("New Item +")
+                .font(Font {
+                    weight: font::Weight::Bold,
+                    ..BOOTSTRAP_FONT
+                })
+                .size(18)
                 .line_height(1.0)
-                .shaping(text::Shaping::Advanced),
+                .shaping(text::Shaping::Advanced)
+                ).padding(8)
         )
         .on_press(Message::AddAccount)
         .padding(5)
@@ -274,31 +320,39 @@ fn password_manager(state: &State) -> Element<'static, Message> {
         .width(Length::Fill)
         .height(Length::Fill)
         .padding(10)
-        .center_x()
-        .center_y()
         .into()
 }
 
-fn account_widget(account: Account, index: usize) -> Element<'static, Message> {
+fn account_widget(account: Account, index: usize, state: &State) -> Element<'static, Message> {
+    let switch_visibility = if state.show_password == Some(index) {
+        image_button("visibility_off", Message::HidePassword)
+    } else {
+        image_button("visibility_on", Message::ShowPassword(index))
+    };
+    let delete_button = image_button("delete", Message::DeleteAccount(index));
+    let edit_button = image_button("edit", Message::EditAccount(index));
+    let copy_button = image_button("copy", Message::CopyAccount(index));
 
+    let button_column = column![
+            row![delete_button, edit_button, switch_visibility, copy_button].align_items(Alignment::Center)
+        ].width(Length::FillPortion(1)).align_items(iced::Alignment::End);
+
+    let account_column = column![
+        row![text(account.get_host())
+            .font(Font {
+                weight: font::Weight::Semibold,
+                ..BOOTSTRAP_FONT
+            })
+            .size(24)],
+        row![text(account.get_username()).size(22)]
+    ].width(Length::FillPortion(2));
     Container::new(row![
-        column![
-            row![text(account.get_host()).size(30)],
-            row![text(account.get_username()).size(25)]
-        ].width(Length::FillPortion(2)),
-        column![
-            Button::new(Text::new("Delete").font(BOOTSTRAP_FONT)
-            .size(20)
-            .line_height(1.0)
-            .shaping(text::Shaping::Advanced)).on_press(Message::DeleteAccount(index))
-        .padding(5)
-        .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
-            theme::Button::Secondary,
-        ))))
-        ].width(Length::FillPortion(1)).align_items(iced::Alignment::End)
-    ])
-    .padding(Padding::new(8.))
+        account_column,
+        button_column
+    
+    ].align_items(Alignment::Center))
+    .padding(Padding::new(20.))
     .width(600.)
     .max_width(800.)
-    .style(iced::theme::Container::Custom(Box::new(Card::new(iced::Background::Color(Color::from_rgb(0.8, 0.8, 0.8)))))).into()
+    .style(iced::theme::Container::Custom(Box::new(Card::new(iced::Background::Color(Color::from_rgb(0.97, 0.97, 0.97)))))).into()
 }

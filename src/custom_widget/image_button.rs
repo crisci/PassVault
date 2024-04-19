@@ -1,11 +1,10 @@
 pub mod image_button {
 
-    use iced::application;
     use iced::widget::{button, button::Appearance};
     use iced::{
         color, theme,
         widget::{column, container, svg, text, Container},
-        Alignment, Border, Color, Length, Renderer, Theme,
+        Alignment, Border, Color, Length, Theme,
     };
     use std::default::Default;
 
@@ -27,18 +26,17 @@ pub mod image_button {
 
         fn active(&self, _: &Self::Style) -> Appearance {
             return match self.label.as_str() {
-                "Hide" => hide_theme(),
-                "Modify" => modify_theme(),
-                "Copy" => copy_theme(),
-                "Confirm" => save_theme(),
-                _ => delete_theme(),
+                "delete" => delete_theme(),
+                "edit" => modify_theme(),
+                "copy" => copy_theme(),
+                "confirm" => save_theme(),
+                _ => hide_theme(),
             };
         }
     }
 
     pub fn image_button<'a>(
         image_name: &'a str,
-        description: &'static str,
         message: Message,
     ) -> Container<'a, Message> {
         let handle = svg::Handle::from_path(format!(
@@ -54,36 +52,26 @@ pub mod image_button {
                 .style(theme::Svg::custom_fn(|_theme| svg::Appearance {
                     color: Some(color!(0xffffff)),
                 }));
-        let (h, w, p) = match description {
-            "Screenshot" => (80, 55, 0),
-            "Folder" => (38, 32, 1),
-            _ => (55, 55, 5),
-        };
         let c = column![
-            if description != "Folder" {
-                text(description)
-            } else {
-                text("")
-            },
             container(
-                button(container(svg).padding(p))
+                button(container(svg))
                     .style(iced::theme::Button::Custom(Box::new(RadiusButton::new(
-                        description.to_string()
+                        image_name.to_string()
                     ))))
+                    .width(32)
+                    .height(32)
                     .on_press(message)
-                    .width(h)
-                    .height(w)
             ),
         ]
         .align_items(Alignment::Center);
 
-        container(c).center_x()
+        container(c).padding(4).center_x()
     }
 
     fn copy_theme() -> Appearance {
         Appearance {
             border: Border::with_radius(100.0),
-            background: Option::from(iced::Background::Color(Color::from(color!(0x364F6B)))),
+            background: Option::from(iced::Background::Color(Color::from(color!(0xb4b4b4)))),
             ..Appearance::default()
         }
     }
@@ -115,7 +103,7 @@ pub mod image_button {
     fn modify_theme() -> Appearance {
         Appearance {
             border: Border::with_radius(100.0),
-            background: Option::from(iced::Background::Color(Color::from(color!(0xF90851)))),
+            background: Option::from(iced::Background::Color(Color::from(color!(0x364F6B)))),
             ..Appearance::default()
         }
     }
