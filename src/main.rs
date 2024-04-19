@@ -1,16 +1,17 @@
 use std::env;
 
 use circle_button::circle_button::CircleButtonStyle;
-use custom_widget::{card::card::Card, image_button::{self, image_button::image_button}};
+use custom_widget::{card::card::Card as PersonalCard, image_button::{self, image_button::image_button}};
+use enums::Modal;
 // [] start and create the (pk, sk)
 // [] choose a device to store the sk
 // [] create the password (symmetric key) and encrypt the pk and sk stored on the USB
 // [] decrypt the sk and check if the format is correct (PEM)
 use iced::{
-    alignment, font, theme, widget::{button, column, container, row, scrollable, shader::wgpu::naga::proc::index, text, Button, Column, Container, Row, Text}, window::Position, Alignment, Application, Color, Command, Element, Font, Length, Padding, Settings, Size, Theme
+    alignment::{self, Horizontal}, font, theme, widget::{button, column, container, row, scrollable, shader::wgpu::naga::proc::index, text, Button, Column, Container, Row, Text, TextInput}, window::Position, Alignment, Application, Color, Command, Element, Font, Length, Padding, Settings, Size, Theme
 };
 
-use iced_aw::floating_element::Anchor;
+use iced_aw::{floating_element::Anchor, modal, Card};
 use iced_aw::{helpers::floating_element, BOOTSTRAP_FONT};
 use login::{login, unlock_wallet};
 use step::step::{Step, Steps};
@@ -58,11 +59,16 @@ enum Message {
     Start,
     UnlockWallet,
     AddAccount,
+    SaveAccount,
     DeleteAccount(usize),
     ShowPassword(usize),
     HidePassword,
     EditAccount(usize),
-    CopyAccount(usize),
+    CopyPassword(usize),
+    CloseAddModal,
+    UsernameChange(String),
+    HostChange(String),
+    SaveEdit,
     None,
 }
 
@@ -81,6 +87,10 @@ pub struct State {
     accounts: Vec<Account>,
     public_key: Option<String>,
     show_password: Option<usize>,
+    modal: Option<Modal>,
+    host_name: String,
+    username: String,
+    edit_index: Option<usize>
 }
 
 async fn load() -> Result<(), String> {
@@ -113,7 +123,7 @@ impl Application for ModalExample {
                 if let Message::Loaded(_) = message {
                     *self = match is_pk_key_created() {
                         true => ModalExample::Loaded(State {
-                            accounts: Vec::from([Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password")), Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password"))]),
+                            accounts: Vec::from([Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password2")), Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password1"))]),
                             step: Steps::UnlockWallet,
                             ..Default::default()
                         }),
@@ -142,6 +152,7 @@ impl Application for ModalExample {
                         Ok((pk, _)) => Some(pk),
                         Err(_) => None,
                     };
+                    state.password.clear();
                     if state.public_key.is_none() {
                         println!("Wrong password!");
                     } else {
@@ -162,16 +173,67 @@ impl Application for ModalExample {
                     state.show_password = None;
                     println!("Hide password");
                 },
-                Message::CopyAccount(index) => {
+                Message::CopyPassword(index) => {
                     println!("Copy account at index: {}", index);
                 },
                 Message::EditAccount(index) => {
+
+                    let account_to_edit = state.accounts.get(index).unwrap();
+
+                    state.host_name = account_to_edit.get_host().clone();
+                    state.username = account_to_edit.get_username().clone();
+                    state.password = account_to_edit.get_key().clone();
+                    state.edit_index = Some(index);
+
+                    state.modal = Some(Modal::EDIT);
                     println!("Edit account at index: {}", index);
                 },
+                Message::SaveEdit => {
+
+                    state.accounts[state.edit_index.unwrap()].set_host(state.host_name.clone());
+                    state.accounts[state.edit_index.unwrap()].set_username(state.username.clone());
+                    state.accounts[state.edit_index.unwrap()].set_key(state.password.clone());
+
+                    state.edit_index = None;
+                    state.password.clear();
+                    state.host_name.clear();
+                    state.username.clear();
+                    state.confirm_password.clear();
+                    
+                    state.modal = None;
+                },
                 Message::AddAccount => {
-                    state.accounts.push(Account::new(String::from("New Account"), String::from("username"), String::from("password")));
+                    state.modal = Some(Modal::ADD);
                     println!("Add account");
                 },
+                Message::SaveAccount => {
+                    //TODO: Checks, encrypt and update json 
+                    let new_account = Account::new(state.host_name.clone(), state.username.clone(), state.password.clone());
+
+                    state.password.clear();
+                    state.host_name.clear();
+                    state.username.clear();
+                    state.confirm_password.clear();
+                    
+                    state.accounts.push(new_account);
+                    
+                    state.modal = None;
+                },
+                Message::CloseAddModal => {
+
+                    state.password.clear();
+                    state.host_name.clear();
+                    state.username.clear();
+                    state.confirm_password.clear();
+                    
+                    state.modal = None;
+                },
+                Message::HostChange(host) => {
+                    state.host_name = host;
+                },
+                Message::UsernameChange(username) => {
+                    state.username = username;
+                }
                 _ => {}
             },
         }
@@ -213,6 +275,7 @@ fn view_logic(state: &State) -> Element<'static, Message> {
         Steps::PasswordManager => row![],
         Steps::UnlockWallet => row![],
     };
+
     let content = match state.step {
         Steps::Login => login(&state),
         Steps::Welcome => welcome(),
@@ -291,6 +354,17 @@ fn password_manager(state: &State) -> Element<'static, Message> {
             .height(Length::Fill)
             .padding(10)
     };
+
+    let modal_overlay: Option<Element<'static, Message>> =  match &state.modal {
+
+        Some(m) => {
+            match m {
+                Modal::ADD =>  add_modal_view(&state),
+                Modal::EDIT => edit_modal_view(&state),
+            }
+        },
+        None => None,
+    };
     
     let content = floating_element(
        main_content,
@@ -316,22 +390,22 @@ fn password_manager(state: &State) -> Element<'static, Message> {
     .offset(10.0)
     .hide(false);
 
-    Container::new(content)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(10)
-        .into()
+    modal(Container::new(content)
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .padding(10)
+    , modal_overlay).backdrop(Message::CloseAddModal).on_esc(Message::CloseAddModal).align_y(alignment::Vertical::Center).into()
 }
 
 fn account_widget(account: Account, index: usize, state: &State) -> Element<'static, Message> {
-    let switch_visibility = if state.show_password == Some(index) {
-        image_button("visibility_off", Message::HidePassword)
+    let (switch_visibility, visibility_content) = if state.show_password == Some(index) {
+       (image_button("visibility_off", Message::HidePassword), account.get_key())
     } else {
-        image_button("visibility_on", Message::ShowPassword(index))
+        (image_button("visibility_on", Message::ShowPassword(index)), account.get_username())
     };
     let delete_button = image_button("delete", Message::DeleteAccount(index));
     let edit_button = image_button("edit", Message::EditAccount(index));
-    let copy_button = image_button("copy", Message::CopyAccount(index));
+    let copy_button = image_button("copy", Message::CopyPassword(index));
 
     let button_column = column![
             row![delete_button, edit_button, switch_visibility, copy_button].align_items(Alignment::Center)
@@ -344,7 +418,7 @@ fn account_widget(account: Account, index: usize, state: &State) -> Element<'sta
                 ..BOOTSTRAP_FONT
             })
             .size(24)],
-        row![text(account.get_username()).size(22)]
+        row![text(visibility_content).size(22)]
     ].width(Length::FillPortion(2));
     Container::new(row![
         account_column,
@@ -354,5 +428,143 @@ fn account_widget(account: Account, index: usize, state: &State) -> Element<'sta
     .padding(Padding::new(20.))
     .width(600.)
     .max_width(800.)
-    .style(iced::theme::Container::Custom(Box::new(Card::new(iced::Background::Color(Color::from_rgb(0.97, 0.97, 0.97)))))).into()
+    .style(iced::theme::Container::Custom(Box::new(PersonalCard::new(iced::Background::Color(Color::from_rgb(0.97, 0.97, 0.97)))))).into()
+}
+
+fn add_modal_view(state: &State) -> Option<Element<'static, Message>> {
+    Some(
+        Card::new(
+            Text::new("New Item").size(20).font(Font{weight: font::Weight::Bold, ..BOOTSTRAP_FONT}),
+            add_modal_body(&state),
+        )
+        .foot(
+            Row::new()
+                .spacing(10)
+                .padding(5)
+                .width(Length::Fill)
+                .push(
+                    Button::new(
+                        Text::new("Cancel")
+                            .horizontal_alignment(Horizontal::Center),
+                    )
+                    .width(Length::Fill)
+                    .on_press(Message::CloseAddModal),
+                )
+                .push(
+                    Button::new(
+                        Text::new("Ok").horizontal_alignment(Horizontal::Center),
+                    )
+                    .width(Length::Fill)
+                    .on_press(Message::SaveAccount),
+                ),
+        )
+        .max_width(500.0)
+        //.width(Length::Shrink)
+        .on_close(Message::CloseAddModal).into()
+    )
+}
+
+
+fn add_modal_body(state: &State) -> Element<'static, Message> {
+        Container::new(
+            Column::new()
+                .align_items(Alignment::Center)
+                .max_width(600)
+                .padding(20)
+                .spacing(16)
+                .push(
+                    TextInput::new("Host", &state.host_name)
+                        .on_input(Message::HostChange)
+                        .padding(10)
+                )
+                .push(
+                    TextInput::new("Username", &state.username)
+                        .on_input(Message::UsernameChange)
+                        .padding(10)
+                )
+                .push(
+                    TextInput::new("Password", &state.password)
+                        .on_input(Message::PasswordChanged)
+                        .padding(10)
+                        .secure(true),
+                )
+                .push(
+                    TextInput::new("Password Confirm", &state.confirm_password)
+                        .on_input(Message::ConfirmPasswordChanged)
+                        .padding(10)
+                        .secure(true),
+                )
+        )
+        .center_y()
+        .center_x()
+        .into()
+}
+
+
+fn edit_modal_view(state: &State) -> Option<Element<'static, Message>> {
+    Some(
+        Card::new(
+            Text::new("Edit Account").size(20).font(Font{weight: font::Weight::Bold, ..BOOTSTRAP_FONT}),
+            edit_modal_body(&state),
+        )
+        .foot(
+            Row::new()
+                .spacing(10)
+                .padding(5)
+                .width(Length::Fill)
+                .push(
+                    Button::new(
+                        Text::new("Cancel")
+                            .horizontal_alignment(Horizontal::Center),
+                    )
+                    .width(Length::Fill)
+                    .on_press(Message::CloseAddModal),
+                )
+                .push(
+                    Button::new(
+                        Text::new("Ok").horizontal_alignment(Horizontal::Center),
+                    )
+                    .width(Length::Fill)
+                    .on_press(Message::SaveEdit),
+                ),
+        )
+        .max_width(500.0)
+        //.width(Length::Shrink)
+        .on_close(Message::CloseAddModal).into()
+    )
+}
+
+fn edit_modal_body(state: &State) -> Element<'static, Message> {
+    Container::new(
+        Column::new()
+            .align_items(Alignment::Center)
+            .max_width(600)
+            .padding(20)
+            .spacing(16)
+            .push(
+                TextInput::new("Host", &state.host_name)
+                    .on_input(Message::HostChange)
+                    .padding(10)
+            )
+            .push(
+                TextInput::new("Username", &state.username)
+                    .on_input(Message::UsernameChange)
+                    .padding(10)
+            )
+            .push(
+                TextInput::new("Password", &state.password)
+                    .on_input(Message::PasswordChanged)
+                    .padding(10)
+                    .secure(true),
+            )
+            .push(
+                TextInput::new("Password Confirm", &state.confirm_password)
+                    .on_input(Message::ConfirmPasswordChanged)
+                    .padding(10)
+                    .secure(true),
+            )
+    )
+    .center_y()
+    .center_x()
+    .into()
 }

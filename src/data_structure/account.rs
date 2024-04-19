@@ -22,6 +22,19 @@ pub mod account {
         pub fn get_key(&self) -> &String {
             &self.key
         }
+
+        pub fn set_host(&mut self, host: String) {
+            self.host = host
+        }
+
+        pub fn set_username(&mut self, username: String) {
+            self.username = username
+        }
+
+        pub fn set_key(&mut self, key: String) {
+            self.key = key
+        }
+        
             
     }
 

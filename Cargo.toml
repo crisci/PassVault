@@ -11,6 +11,6 @@ base64 = "0.22.0"
 rand = "0.8.5"
 directories = "5.0.1"
 iced = {version = "0.12.1", features = ["svg", "tokio", "image", "advanced", "debug", "canvas", "lazy"]}
-iced_aw = {version = "0.8.0", features = ["icons", "floating_element"]}
+iced_aw = {version = "0.8.0", features = ["icons", "floating_element", "card", "modal"]}
 ring = "0.17.8"
 hex = "0.4.3"
