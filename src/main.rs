@@ -14,11 +14,12 @@ use iced::{
 use iced_aw::{floating_element::Anchor, modal, Card};
 use iced_aw::{helpers::floating_element, BOOTSTRAP_FONT};
 use login::{login, unlock_wallet};
+use serde::de;
 use step::step::{Step, Steps};
 use utils::{generate_key_pair, get_keys, is_pk_key_created};
 
 use crate::utils::{decrypt_data, utils::{pad16, pad32}};
-use data_structure::account::account::{serialize_accounts, Account};
+use data_structure::account::account::{deserialize_accounts, serialize_accounts, Account};
 
 mod circle_button;
 mod data_structure;
@@ -124,7 +125,7 @@ impl Application for ModalExample {
                 if let Message::Loaded(_) = message {
                     *self = match is_pk_key_created() {
                         true => ModalExample::Loaded(State {
-                            accounts: Vec::from([Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password2")), Account::new(String::from("Windows"), String::from("test@windows.com"), String::from("password1"))]),
+                            accounts: Vec::new(),
                             step: Steps::UnlockWallet,
                             ..Default::default()
                         }),
@@ -139,11 +140,14 @@ impl Application for ModalExample {
                     if state.password != state.confirm_password {
                         println!("Password not match!")
                     } else if state.password.len() < 8
-                        || state.password.chars().all(char::is_alphanumeric)
+                        && state.password.chars().all(char::is_alphanumeric)
                     {
                         println!("Weak password!")
                     } else {
                         generate_key_pair(&state.password);
+                        state.symm = state.password.clone();
+                        state.password.clear();
+                        state.confirm_password.clear();
                         state.step = Steps::PasswordManager
                     }
                 }
@@ -156,15 +160,17 @@ impl Application for ModalExample {
                     if state.public_key.is_none() {
                         println!("Wrong password!");
                     } else {
+                        let accounts = deserialize_accounts(&state.password).unwrap();
+                        state.accounts = accounts;
                         state.symm = state.password.clone();
-                        println!("{:?}", decrypt_data(&state.symm));
                         state.password.clear();
                         state.step = Steps::PasswordManager;
                     }
                 },
                 Message::DeleteAccount(index) => {
                     state.accounts.remove(index);
-                    //TODO: Save to json file encrypted
+
+                    let _ = serialize_accounts(&state.accounts, &state.symm);
                     println!("Delete account at index: {}", index);
                 },
                 Message::Start => state.step = Steps::Login,
@@ -191,11 +197,23 @@ impl Application for ModalExample {
                     state.modal = Some(Modal::EDIT);
                     println!("Edit account at index: {}", index);
                 },
-                Message::SaveEdit => {
+                Message::SaveEdit => { 
+
+                    println!("{}", state.confirm_password);
+
+                    if state.password.len() < 8 && state.password.chars().all(char::is_alphanumeric) {
+                        println!("Weak password!");
+                        return Command::none();
+                    } else if state.password != state.confirm_password {
+                        println!("Password not match!");
+                        return Command::none();
+                    }
 
                     state.accounts[state.edit_index.unwrap()].set_host(state.host_name.clone());
                     state.accounts[state.edit_index.unwrap()].set_username(state.username.clone());
                     state.accounts[state.edit_index.unwrap()].set_key(state.password.clone());
+
+                    let _ = serialize_accounts(&state.accounts, &state.symm);
 
                     state.edit_index = None;
                     state.password.clear();
@@ -211,6 +229,15 @@ impl Application for ModalExample {
                 },
                 Message::SaveAccount => {
                     //TODO: Checks, encrypt and update json 
+
+                    if state.password.len() < 8 && state.password.chars().all(char::is_alphanumeric) {
+                        println!("Weak password!");
+                        return Command::none();
+                    } else if state.password != state.confirm_password {
+                        println!("Password not match!");
+                        return Command::none();
+                    }
+
                     let new_account = Account::new(state.host_name.clone(), state.username.clone(), state.password.clone());
 
                     state.password.clear();
@@ -220,7 +247,7 @@ impl Application for ModalExample {
                     
                     state.accounts.push(new_account);
 
-                    serialize_accounts(&state.accounts, &state.symm);
+                    let _ = serialize_accounts(&state.accounts, &state.symm);
                     
                     state.modal = None;
                 },

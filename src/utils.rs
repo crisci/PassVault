@@ -149,7 +149,7 @@ fn locate_keys(pk: String, sk: String) -> Result<(), String> {
 
     println!("{:?}", new_dir);
 
-    if !new_dir.exists() {
+    if !pk_path.exists() {
         fs::create_dir_all(&new_dir).map_err(|err| format!("Error creating directory: {}", err))?;
         // First time creation
         let mut sk_file = File::create(&sk_path).map_err(|err| format!("Error creating sk file: {}", err))?;
@@ -242,7 +242,7 @@ pub fn encrypt_data(data: &String, symmetric_key: &String) -> Result<String, Str
         let public_key = Rsa::public_key_from_pem(pk.as_bytes()).unwrap();
         let mut buf = vec![0; public_key.size() as usize];
 
-        let enc_size = public_key.public_encrypt(data.as_bytes(), &mut buf, Padding::PKCS1).unwrap();
+        let _enc_size = public_key.public_encrypt(data.as_bytes(), &mut buf, Padding::PKCS1).unwrap();
     
 
         let data_enc_hex = hex::encode(buf);
@@ -254,7 +254,7 @@ pub fn encrypt_data(data: &String, symmetric_key: &String) -> Result<String, Str
 }
 
 
-pub fn decrypt_data(symmetric_key: &String) {
+pub fn decrypt_data(symmetric_key: &String) -> Result<String, String> {
     let dir = directories::BaseDirs::new().ok_or("Error getting base directories").unwrap();
     let sk_dir = PathBuf::from(format!(
         "{}/{}",
@@ -275,8 +275,8 @@ pub fn decrypt_data(symmetric_key: &String) {
     let sk_path = sk_dir.join("secret_key.pem");
     let data_path = data_dir.join("accounts.config");
     if sk_dir.exists() {
-        let sk_file = File::open(&sk_path).map_err(|err| format!("Error opening file: {}", err)).unwrap();
-        let data_file = File::open(&data_path).map_err(|err| format!("Error opening file: {}", err)).unwrap();
+        let sk_file = File::open(&sk_path).map_err(|err| format!("Error opening file: {}", err))?;
+        let data_file = File::open(&data_path).map_err(|err| format!("Error opening file: {}", err))?;
 
         let mut sk_reader = BufReader::new(sk_file);
         let mut data_reader = BufReader::new(data_file);
@@ -294,6 +294,7 @@ pub fn decrypt_data(symmetric_key: &String) {
         let iv = b"\x00\x01\x02\x03\x04\x05\x06\x07\x00\x01\x02\x03\x04\x05\x06\x07";
 
         let aes = Cipher::aes_256_cbc();
+        println!{"{}", symmetric_key};
         let sk = String::from_utf8(decrypt(aes, key, Some(iv), &sk_enc).expect("Unable to decrypt the key")).unwrap();
         
         let secret_key = Rsa::private_key_from_pem(sk.as_bytes()).unwrap();
@@ -301,11 +302,13 @@ pub fn decrypt_data(symmetric_key: &String) {
 
         let data = hex::decode(data_b64).unwrap();
 
-        let enc_size = secret_key.private_decrypt(&data, &mut buf, Padding::PKCS1).unwrap();
-        
-        println!("{:?}", String::from_utf8(buf));
+        let _enc_size = secret_key.private_decrypt(&data, &mut buf, Padding::PKCS1).unwrap();
+
+        return Ok(String::from_utf8(buf).unwrap());
 
     }
+    // Add a default return value if the condition is not met
+    Err("Unable to find secret key".to_owned())
 
 }
 
