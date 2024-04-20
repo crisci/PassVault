@@ -30,6 +30,7 @@ pub mod image_button {
                 "edit" => modify_theme(),
                 "copy" => copy_theme(),
                 "confirm" => save_theme(),
+                "folder" =>  folder_theme(),
                 _ => hide_theme(),
             };
         }
@@ -104,6 +105,14 @@ pub mod image_button {
         Appearance {
             border: Border::with_radius(100.0),
             background: Option::from(iced::Background::Color(Color::from(color!(0x364F6B)))),
+            ..Appearance::default()
+        }
+    }
+
+    fn folder_theme() -> Appearance {
+        Appearance {
+            border: Border::with_radius(10.0),
+            background: Option::from(iced::Background::Color(Color::from(color!(0x007bff)))),
             ..Appearance::default()
         }
     }

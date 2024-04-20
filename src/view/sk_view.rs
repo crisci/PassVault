@@ -1,11 +1,45 @@
 pub mod sk_view {
-    use iced::{alignment::Horizontal, theme, widget::{container, text, Button, Column, Container}, Alignment, Element, Font, Length};
+    use iced::{alignment::{Horizontal, Vertical}, theme, widget::{button, container, text, Button, Column, Container, Row}, Alignment, Element, Font, Length, Padding};
     use iced_aw::BOOTSTRAP_FONT;
 
-    use crate::{custom_widget::circle_button::circle_button::CircleButtonStyle, Message};
+    use crate::{custom_widget::{circle_button::circle_button::CircleButtonStyle, container_border::rounded_container, image_button::image_button::image_button}, Message, State};
 
 
-    pub fn sk_view() -> Element<'static, Message> {
+    pub fn sk_view(state: &State) -> Element<'static, Message> {
+
+        let folder_button = image_button("folder", Message::SelectPath).width(Length::FillPortion(1));
+        let path_container = rounded_container(
+            match &state.aes_key_path {
+                Some(path) => path.to_string(),
+                None => "Select the path...".to_string(),
+            }
+        ).width(Length::FillPortion(6));
+
+        let confirm_button: Button<'static, Message> = button(text("Confirm").size(30).font(Font {
+            weight: iced::font::Weight::Semibold,
+            ..BOOTSTRAP_FONT
+        }))
+        .on_press(Message::ConfirmKeyPath)
+        .style(theme::Button::Primary)
+        .padding(Padding {
+            bottom: 4.,
+            top: 4.,
+            left: 28.,
+            right: 28.,
+        })
+        .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
+            theme::Button::Primary,
+        ))));
+
+        let select_row = container(Row::new()
+        .push(path_container)
+        .push(folder_button)
+        .align_items(Alignment::End))
+        .center_x()
+        .center_y();
+
+        
+
         Container::new(
             Column::new()
                 .align_items(Alignment::Center)
@@ -18,16 +52,9 @@ pub mod sk_view {
                         .horizontal_alignment(Horizontal::Left),
                 )
                 .push(
-                    container(Button::new(text("Select the path").size(26).font(
-                        Font { weight: iced::font::Weight::Semibold, ..BOOTSTRAP_FONT } 
-                    )
-                ).style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
-                    theme::Button::Primary,
-                )))).padding(16.)
-                    .on_press(Message::SelectPath))
-                        .align_x(Horizontal::Center)
-                        .width(Length::Fill),
-                ),
+                 select_row
+                )
+                .push(confirm_button)
         )
         .width(Length::Fill)
         .height(Length::Fill)

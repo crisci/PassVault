@@ -58,6 +58,7 @@ enum Message {
     HostChange(String),
     SaveEdit,
     SelectPath,
+    ConfirmKeyPath
 }
 
 #[derive(Debug)]
@@ -138,12 +139,27 @@ impl Application for ModalExample {
                 Message::SelectPath => {
                     state.aes_key_path = select_path();
                     println!("{:?}", state.aes_key_path);
+                },
+                Message::ConfirmKeyPath => {
+                    if state.aes_key_path.is_none() {
+                        println!("Please select path");
+                        return Command::none();
+                    }
+
                     if !state.aes_key_path.is_none() && !PathBuf::from_str(state.aes_key_path.clone().unwrap().as_str()).unwrap().is_file() {
                         create_passvault_files();
                         state.aes_key = generate_key_pair(state.aes_key_path.clone().unwrap(), state.password.clone());
-                        state.step = Step::PasswordManager;
                     }
-                },
+
+                    println!("{:?}", state.aes_key.clone());
+
+                    println!("{}", state.aes_key_path.clone().unwrap());
+                    
+                    state.password.clear();
+                    state.confirm_password.clear();
+
+                    state.step = Step::PasswordManager;
+                }
                 Message::Login => {
 
                     if state.aes_key_path.is_none() || state.password.is_empty() {

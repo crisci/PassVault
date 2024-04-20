@@ -17,9 +17,9 @@ pub mod password_check_view;
 
 pub fn view_logic(state: &State) -> Element<'static, Message> {
     let content = match state.step {
-        Step::StoreSecretKey => sk_view(),
+        Step::StoreSecretKey => sk_view(&state),
         Step::Welcome => welcome_view(),
-        Step::GetSecretKey => sk_view(),
+        Step::GetSecretKey => sk_view(&state),
         Step::PasswordManager => password_manager(state),
         Step::PasswordCreation => password_creation_view(state),
         Step::PasswordCheck => password_check_view(state),

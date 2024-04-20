@@ -1,7 +1,10 @@
 pub mod password_creation_view {
-    use iced::{alignment::Horizontal, widget::{container, text, Button, Column, Container, TextInput}, Alignment, Element, Length};
+    use iced::{
+        alignment::Horizontal, theme, widget::{button, container, text, Column, Container, TextInput}, Alignment, Element, Font, Length
+    };
+    use iced_aw::BOOTSTRAP_FONT;
 
-    use crate::{Message, State};
+    use crate::{custom_widget::circle_button::circle_button::CircleButtonStyle, Message, State};
     pub fn password_creation_view(state: &State) -> Element<'static, Message> {
         Container::new(
             Column::new()
@@ -29,9 +32,19 @@ pub mod password_creation_view {
                         .secure(true),
                 )
                 .push(
-                    container(Button::new(text("Confirm")).on_press(Message::PasswordCreated))
-                        .align_x(Horizontal::Right)
-                        .width(Length::Fill),
+                    container(
+                        button(text("Confirm").size(20).font(Font {
+                            weight: iced::font::Weight::Semibold,
+                            ..BOOTSTRAP_FONT
+                        }))
+                            .padding(8)
+                            .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
+                                theme::Button::Primary,
+                            ))))
+                            .on_press(Message::PasswordCreated),
+                    )
+                    .align_x(Horizontal::Right)
+                    .width(Length::Fill),
                 ),
         )
         .width(Length::Fill)
