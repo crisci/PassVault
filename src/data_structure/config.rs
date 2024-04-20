@@ -6,25 +6,18 @@ pub mod config {
 
     #[derive(Debug, Clone, Default, Serialize, Deserialize)]
     pub struct Config {
-        pk_path: String,
         sk_path: String,
     }
 
     impl Config {
-        pub fn new(pk_path: String, sk_path: String) -> Self {
-            Self { pk_path, sk_path }
-        }
-
-        pub fn get_pk_path(&self) -> &String {
-            &self.pk_path
+        pub fn new(sk_path: String) -> Self {
+            Self {
+                sk_path,
+            }
         }
 
         pub fn get_sk_path(&self) -> &String {
             &self.sk_path
-        }
-
-        pub fn set_pk_path(&mut self, pk_path: String) {
-            self.pk_path = pk_path
         }
 
         pub fn set_sk_path(&mut self, sk_path: String) {
@@ -37,16 +30,17 @@ pub mod config {
             let file_path = new_dir.join("config.config");
             if !new_dir.exists() {
                 fs::create_dir_all(&new_dir).map_err(|err| format!("Error creating directory: {}", err))?;
-            }
-            if !file_path.exists() {
                 let mut file = File::create(&file_path).map_err(|err| format!("Error creating file: {}", err))?;
-                let config = Config::new(String::from(""), String::from(""));
+                let config = Config::new("".to_string());
                 let serialized = serde_json::to_string(&config).map_err(|err| format!("Serialization error: {}", err))?;
                 file.write_all(serialized.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
+                return Ok(config);
+            } else {
+                let file = File::open(&file_path).map_err(|err| format!("Error opening file: {}", err))?;
+                let reader = std::io::BufReader::new(file);
+                let config: Config = serde_json::from_reader(reader).map_err(|err| format!("Deserialization error: {}", err))?;
+                return Ok(config);
             }
-            let file = File::open(&file_path).map_err(|err| format!("Error opening file: {}", err))?;
-            let config: Config = serde_json::from_reader(file).map_err(|err| format!("Error reading file: {}", err))?;
-            Ok(config)
         }
 
         pub fn save_config(self) -> Result<(), String> {
@@ -59,7 +53,7 @@ pub mod config {
             let mut file = File::create(&file_path).map_err(|err| format!("Error creating file: {}", err))?;
             let serialized = serde_json::to_string(&self).map_err(|err| format!("Serialization error: {}", err))?;
             file.write_all(serialized.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
-            Ok(())
+            return Ok(());
         }
     }
 }

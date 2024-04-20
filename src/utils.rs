@@ -1,141 +1,59 @@
 use std::{
     fs::{self, File},
-    io::{BufReader, Error, Read, Write},
-    ops::Deref,
-    panic,
-    path::PathBuf,
+    io::Write,
+    path::PathBuf, str::FromStr,
 };
 
 use openssl::{
-    aes::{self, aes_ige, AesKey},
-    encrypt,
-    rsa::{Padding, Rsa},
-    symm::{decrypt, encrypt, Cipher, Crypter, Mode},
+   rand, rsa::{Padding, Rsa}, symm::{encrypt, Cipher}
 };
+use rfd::FileDialog;
 
-use crate::utils::utils::{pad32, pad512, public_key};
 
 pub mod utils {
-    use std::{
-        fs::{self, File},
-        io::{BufReader, Read, Write},
-        path::PathBuf,
-    };
 
-    use openssl::{pkey::Private, rsa::Rsa};
 
-    use crate::enums::KeyStatus;
 
-    pub fn pad16(s: &String) -> String {
+    pub fn _pad16(s: &String) -> String {
         format!("{:0<16}", s)
     }
 
-    pub fn pad32(s: &String) -> String {
+    pub fn _pad32(s: &String) -> String {
         format!("{:0<32}", s)
     }
 
-    pub fn pad512(s: &String) -> String {
+    pub fn _pad512(s: &String) -> String {
         format!("{:-<512}", s)
     }
 
-    pub fn private_key(sk: Vec<u8>) -> Result<KeyStatus, String> {
-        let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
-        let new_dir = PathBuf::from(format!(
-            "{}/{}",
-            dir.data_local_dir()
-                .to_str()
-                .ok_or("Error getting data local dir")?,
-            "PassVault"
-        ));
-        let file_path = new_dir.join("private_key.pem");
-
-        if !new_dir.exists() {
-            fs::create_dir_all(&new_dir)
-                .map_err(|err| format!("Error creating directory: {}", err))?;
-            // First time creation
-            let mut file =
-                File::create(&file_path).map_err(|err| format!("Error creating file: {}", err))?;
-            file.write_all(&sk)
-                .map_err(|err| format!("Error writing to file: {}", err))?;
-            return Ok(KeyStatus::CREATED(sk));
-        } else {
-            // File already exists, so read the file
-            let mut key = Vec::new();
-            let file =
-                File::open(&file_path).map_err(|err| format!("Error opening file: {}", err))?;
-            let mut reader = BufReader::new(file);
-            reader
-                .read_to_end(&mut key)
-                .map_err(|err| format!("Errore nella lettura del file: {}", err))?;
-            return Ok(KeyStatus::PRESENT(sk));
-        }
-    }
-
-    pub fn public_key(pk: Vec<u8>) -> Result<KeyStatus, String> {
-        let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
-        let new_dir = PathBuf::from(format!(
-            "{}/{}",
-            dir.data_local_dir()
-                .to_str()
-                .ok_or("Error getting data local dir")?,
-            "PassVault"
-        ));
-        let file_path = new_dir.join("public_key.pem");
-
-        if !new_dir.exists() {
-            fs::create_dir_all(&new_dir)
-                .map_err(|err| format!("Error creating directory: {}", err))?;
-            // First time creation
-            let mut file =
-                File::create(&file_path).map_err(|err| format!("Error creating file: {}", err))?;
-            file.write_all(&pk)
-                .map_err(|err| format!("Error writing to file: {}", err))?;
-            return Ok(KeyStatus::CREATED(pk));
-        } else {
-            // File already exists, so read the file
-            let mut key = Vec::new();
-            let file =
-                File::open(&file_path).map_err(|err| format!("Error opening file: {}", err))?;
-            let mut reader = BufReader::new(file);
-            reader
-                .read_to_end(&mut key)
-                .map_err(|err| format!("Errore nella lettura del file: {}", err))?;
-            return Ok(KeyStatus::PRESENT(pk));
-        }
-    }
 }
 
-pub fn generate_key_pair(symmetric_key: &String) {
+pub fn generate_key_pair(sk_path: String) {
     let key_pair = Rsa::generate(2048).expect("Error generating the keys");
-    let (secret_key, public_key) = (
+    let secret_key = 
         key_pair
             .private_key_to_pem()
-            .expect("Error extracting the pk"),
-        key_pair
-            .public_key_to_pem()
-            .expect("Error extracting the sk"),
-    );
+            .expect("Error extracting the pk");
 
-    let my_key_32 = format!("{:0>32}", symmetric_key);
+    let mut aes_key = [0; 32];
+    rand::rand_bytes(&mut aes_key).unwrap();
 
-    let key = my_key_32.as_bytes();
-    let iv = b"\x00\x01\x02\x03\x04\x05\x06\x07\x00\x01\x02\x03\x04\x05\x06\x07";
+    let mut buf = vec![0; key_pair.size() as usize];
 
-    let aes = Cipher::aes_256_cbc();
-    let pk_enc_b64 = hex::encode(
-        encrypt(aes, key, Some(iv), public_key.as_slice()).expect("Encryption failure"),
-    );
-    let sk_enc_b64 = hex::encode(
-        encrypt(aes, key, Some(iv), secret_key.as_slice()).expect("Encryption failure"),
-    );
+    let _key_enc = key_pair.public_encrypt(&aes_key, &mut buf, Padding::PKCS1).unwrap();
+    let key_enc_hex = hex::encode(buf);
 
-    match locate_keys(pk_enc_b64, sk_enc_b64) {
-        Ok(_) => (),
-        Err(s) => panic!("{}", s),
+    let sk_enc = encrypt_data(&String::from_utf8(secret_key).unwrap(), &aes_key).unwrap();
+    let sk_enc_b64 = hex::encode(sk_enc);
+
+
+    match locate_keys(key_enc_hex, sk_enc_b64, sk_path) {
+        Ok(_) => println!("Keys located"),
+        Err(e) => println!("{}", e),
     }
 }
 
-fn locate_keys(pk: String, sk: String) -> Result<(), String> {
+fn locate_keys(symm_key: String, sk: String, sk_path: String) -> Result<(), String> {
     let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
     let new_dir = PathBuf::from(format!(
         "{}/{}",
@@ -144,19 +62,19 @@ fn locate_keys(pk: String, sk: String) -> Result<(), String> {
             .ok_or("Error getting data local dir")?,
         "PassVault"
     ));
-    let sk_path = new_dir.join("secret_key.pem");
-    let pk_path = new_dir.join("public_key.pem");
+    let sk_path = PathBuf::from_str(&format!("{}/secret_key.pem", sk_path)).unwrap();
+    let symm = new_dir.join("symm.key");
 
     println!("{:?}", new_dir);
 
-    if !pk_path.exists() {
+    if !symm.exists() {
         fs::create_dir_all(&new_dir).map_err(|err| format!("Error creating directory: {}", err))?;
         // First time creation
         let mut sk_file = File::create(&sk_path).map_err(|err| format!("Error creating sk file: {}", err))?;
-        let mut pk_file = File::create(&pk_path).map_err(|err| format!("Error creating pk file: {}", err))?;
+        let mut symm_file = File::create(&symm).map_err(|err| format!("Error creating pk file: {}", err))?;
 
         sk_file.write_all(sk.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
-        pk_file.write_all(pk.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
+        symm_file.write_all(symm_key.as_bytes()).map_err(|err| format!("Error writing to file: {}", err))?;
 
         println!("key created at {}", new_dir.to_str().unwrap());
         
@@ -165,154 +83,20 @@ fn locate_keys(pk: String, sk: String) -> Result<(), String> {
     Ok(())
 }
 
-pub fn get_keys(symmetric_key: &String) -> Result<(String, String), String> {
-    let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
-    let keys_dir = PathBuf::from(format!(
-        "{}/{}",
-        dir.data_local_dir()
-            .to_str()
-            .ok_or("Error getting data local dir")?,
-        "PassVault"
-    ));
-    let sk_path = keys_dir.join("secret_key.pem");
-    let pk_path = keys_dir.join("public_key.pem");
 
-    if keys_dir.exists() {
-        let sk_file = File::open(&sk_path).map_err(|err| format!("Error opening file: {}", err))?;
-        let pk_file = File::open(&pk_path).map_err(|err| format!("Error opening file: {}", err))?;
+pub fn encrypt_data(data: &String, symmetric_key: &[u8]) -> Result<String, String> {
 
-        let mut sk_reader = BufReader::new(sk_file);
-        let mut pk_reader = BufReader::new(pk_file);
-        
-        let mut pk_enc_b64: String = String::new();
-        pk_reader.read_to_string(&mut pk_enc_b64).expect("Unable to read the key");
-
-        let mut sk_enc_b64: String = String::new();
-        sk_reader.read_to_string(&mut sk_enc_b64).expect("Unable to read the key");
-
-        let sk_enc = hex::decode(sk_enc_b64).expect("Unable to decode the key");
-        let pk_enc = hex::decode(pk_enc_b64).expect("Unable to decode the key");
-
-
-        let my_key_32 = format!("{:0>32}", symmetric_key);
-
-        let key = my_key_32.as_bytes();
-        let iv = b"\x00\x01\x02\x03\x04\x05\x06\x07\x00\x01\x02\x03\x04\x05\x06\x07";
-        
-        let aes = Cipher::aes_256_cbc();
-        let sk = String::from_utf8(decrypt(aes, key, Some(iv), &sk_enc).expect("Unable to decrypt the key"));
-        let pk = String::from_utf8(decrypt(aes, key, Some(iv), &pk_enc).expect("Unable to decrypt the key"));
-
-        return Ok((pk.unwrap(), sk.unwrap()));
-
-    }
-
-    Err("Unable to find key".to_owned())
-}
-
-
-pub fn encrypt_data(data: &String, symmetric_key: &String) -> Result<String, String> {
-    let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
-    let pk_dir = PathBuf::from(format!(
-        "{}/{}",
-        dir.data_local_dir()
-            .to_str()
-            .ok_or("Error getting data local dir")?,
-        "PassVault"
-    ));
-    
-    let pk_path = pk_dir.join("public_key.pem");
-    if pk_dir.exists() {
-        let pk_file = File::open(&pk_path).map_err(|err| format!("Error opening file: {}", err))?;
-
-        let mut pk_reader = BufReader::new(pk_file);
-
-        let mut pk_enc_b64: String = String::new();
-        pk_reader.read_to_string(&mut pk_enc_b64).expect("Unable to read the key");
-
-        let pk_enc = hex::decode(pk_enc_b64).expect("Unable to decode the key");
-        let my_key_32 = format!("{:0>32}", symmetric_key);
-
-        let key = my_key_32.as_bytes();
         let iv = b"\x00\x01\x02\x03\x04\x05\x06\x07\x00\x01\x02\x03\x04\x05\x06\x07";
 
         let aes = Cipher::aes_256_cbc();
-        let pk = String::from_utf8(decrypt(aes, key, Some(iv), &pk_enc).expect("Unable to decrypt the key")).unwrap();
-        
-        let public_key = Rsa::public_key_from_pem(pk.as_bytes()).unwrap();
-        let mut buf = vec![0; public_key.size() as usize];
-
-        let _enc_size = public_key.public_encrypt(data.as_bytes(), &mut buf, Padding::PKCS1).unwrap();
-    
-
-        let data_enc_hex = hex::encode(buf);
+        let data_enc = encrypt(aes, symmetric_key, Some(iv), data.as_bytes()).expect("Unable to decrypt the key");
+        let data_enc_hex = hex::encode(data_enc);
         
         return Ok(data_enc_hex);
-    }
-
-    Err(String::from("Unable to find the key"))
 }
 
 
-pub fn decrypt_data(symmetric_key: &String) -> Result<String, String> {
-    let dir = directories::BaseDirs::new().ok_or("Error getting base directories").unwrap();
-    let sk_dir = PathBuf::from(format!(
-        "{}/{}",
-        dir.data_local_dir()
-            .to_str()
-            .ok_or("Error getting data local dir").unwrap(),
-        "PassVault"
-    ));
-
-    let data_dir = PathBuf::from(format!(
-        "{}/{}",
-        dir.data_local_dir()
-            .to_str()
-            .ok_or("Error getting data local dir").unwrap(),
-        "PassVault"
-    ));
-    
-    let sk_path = sk_dir.join("secret_key.pem");
-    let data_path = data_dir.join("accounts.config");
-    if sk_dir.exists() {
-        let sk_file = File::open(&sk_path).map_err(|err| format!("Error opening file: {}", err))?;
-        let data_file = File::open(&data_path).map_err(|err| format!("Error opening file: {}", err))?;
-
-        let mut sk_reader = BufReader::new(sk_file);
-        let mut data_reader = BufReader::new(data_file);
-
-        let mut sk_enc_b64: String = String::new();
-        sk_reader.read_to_string(&mut sk_enc_b64).expect("Unable to read the key");
-
-        let mut data_b64: String = String::new();
-        data_reader.read_to_string(&mut data_b64).expect("Unable to read the key");
-
-        let sk_enc = hex::decode(sk_enc_b64).expect("Unable to decode the key");
-        let my_key_32 = format!("{:0>32}", symmetric_key);
-
-        let key = my_key_32.as_bytes();
-        let iv = b"\x00\x01\x02\x03\x04\x05\x06\x07\x00\x01\x02\x03\x04\x05\x06\x07";
-
-        let aes = Cipher::aes_256_cbc();
-        println!{"{}", symmetric_key};
-        let sk = String::from_utf8(decrypt(aes, key, Some(iv), &sk_enc).expect("Unable to decrypt the key")).unwrap();
-        
-        let secret_key = Rsa::private_key_from_pem(sk.as_bytes()).unwrap();
-        let mut buf = vec![0; secret_key.size() as usize];
-
-        let data = hex::decode(data_b64).unwrap();
-
-        let _enc_size = secret_key.private_decrypt(&data, &mut buf, Padding::PKCS1).unwrap();
-
-        return Ok(String::from_utf8(buf).unwrap());
-
-    }
-    // Add a default return value if the condition is not met
-    Err("Unable to find secret key".to_owned())
-
-}
-
-pub fn is_pk_key_created() -> bool {
+pub fn is_key_created() -> bool {
     let dir = match directories::BaseDirs::new() {
         Some(dir) => dir,
         None => return false
@@ -327,6 +111,16 @@ pub fn is_pk_key_created() -> bool {
         dir_str,
         "PassVault"
     ));
-    let pk_path = keys_dir.join("public_key.pem");
+    let pk_path = keys_dir.join("symm.key");
     pk_path.exists()
+}
+
+pub fn select_path() -> Option<String>{
+    let dir = directories::UserDirs::new().unwrap();
+    let home_dir = dir.home_dir();
+    let result = FileDialog::new().set_directory(home_dir).pick_folder();
+    match result {
+        Some(selected_path) => {Some(selected_path.into_os_string().into_string().unwrap())},
+        None => {None}
+    }
 }

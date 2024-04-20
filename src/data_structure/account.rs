@@ -8,7 +8,7 @@ pub mod account {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::utils::{decrypt_data, encrypt_data};
+    use crate::utils::encrypt_data;
 
     #[derive(Debug, Clone, Default, Serialize, Deserialize)]
     pub struct Account {
@@ -52,7 +52,7 @@ pub mod account {
 
     pub fn serialize_accounts(
         accounts: &Vec<Account>,
-        symmetric_key: &String,
+        symmetric_key: &[u8],
     ) -> Result<(), String> {
         let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
         let new_dir = PathBuf::from(format!(
@@ -76,26 +76,5 @@ pub mod account {
         file.write_all(serialized_enc.as_bytes())
             .map_err(|err| format!("Error writing to file: {}", err))?;
         Ok(())
-    }
-
-    pub fn deserialize_accounts(symmetric_key: &String) -> Result<Vec<Account>, String> {
-        let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
-        let accounts_dir = PathBuf::from(format!(
-            "{}/{}",
-            dir.data_local_dir()
-                .to_str()
-                .ok_or("Error getting data local dir")?,
-            "PassVault"
-        ));
-
-        if !accounts_dir.exists() {
-            fs::create_dir_all(&accounts_dir)
-                .map_err(|err| format!("Error creating directory: {}", err))?;
-        }
-
-        let data = decrypt_data(symmetric_key).unwrap();
-        println!("{}", data);
-        let deserialize: Vec<Account> = serde_json::from_str(data.trim_matches(char::from(0))).map_err(|err| format!("Error reading file: {}", err))?;
-        Ok(deserialize)
     }
 }

@@ -3,7 +3,7 @@ pub mod image_button {
     use iced::widget::{button, button::Appearance};
     use iced::{
         color, theme,
-        widget::{column, container, svg, text, Container},
+        widget::{column, container, svg, Container},
         Alignment, Border, Color, Length, Theme,
     };
     use std::default::Default;
