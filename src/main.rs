@@ -1,11 +1,15 @@
+use std::{path::PathBuf, str::FromStr};
+
 use enums::{step::step::Step, Modal};
 use iced::{alignment::Horizontal, font, widget::{container, text}, window::Position, Application, Command, Element, Length, Size, Theme
 };
 
-use utils::{generate_key_pair, is_key_created, select_path};
+use utils::{check_decryption_key, generate_key_pair, is_key_created, select_path};
 
-use data_structure::account::account::{serialize_accounts, Account};
+use data_structure::account::account::{deserialize_accounts, serialize_accounts, Account};
 use view::view_logic;
+
+use crate::utils::utils::create_passvault_files;
 
 mod data_structure;
 mod enums;
@@ -41,6 +45,8 @@ enum Message {
     FontLoaded(Result<(), font::Error>),
     Start,
     AddAccount,
+    PasswordCreated,
+    Login,
     SaveAccount,
     DeleteAccount(usize),
     ShowPassword(usize),
@@ -66,13 +72,13 @@ pub struct State {
     password: String,
     confirm_password: String,
     step: Step,
-    symm: Vec<u8>,
+    aes_key: Vec<u8>,
     accounts: Vec<Account>,
     show_password: Option<usize>,
     modal: Option<Modal>,
     host_name: String,
     username: String,
-    sk_path: Option<String>,
+    aes_key_path: Option<String>,
     edit_index: Option<usize>
 }
 
@@ -107,7 +113,7 @@ impl Application for ModalExample {
                     *self = match is_key_created() {
                         true => ModalExample::Loaded(State {
                             accounts: Vec::new(),
-                            step: Step::GetSecretKey,
+                            step: Step::PasswordCheck,
                             ..Default::default()
                         }),
                         false => ModalExample::Loaded(State::default()),
@@ -117,13 +123,62 @@ impl Application for ModalExample {
             ModalExample::Loaded(state) => match message {
                 Message::PasswordChanged(password) => state.password = password,
                 Message::ConfirmPasswordChanged(password) => state.confirm_password = password,
+                Message::PasswordCreated => {
+                    if state.password != state.confirm_password {
+                        println!("Password not match!")
+                    } else if state.password.len() < 8
+                        || state.password.chars().all(char::is_alphanumeric)
+                    {
+                        println!("Weak password!")
+                    } else {
+                        state.step = Step::StoreSecretKey;
+                        println!("Password create!")
+                    }
+                }, 
+                Message::SelectPath => {
+                    state.aes_key_path = select_path();
+                    println!("{:?}", state.aes_key_path);
+                    if !state.aes_key_path.is_none() && !PathBuf::from_str(state.aes_key_path.clone().unwrap().as_str()).unwrap().is_file() {
+                        create_passvault_files();
+                        state.aes_key = generate_key_pair(state.aes_key_path.clone().unwrap(), state.password.clone());
+                        state.step = Step::PasswordManager;
+                    }
+                },
+                Message::Login => {
+
+                    if state.aes_key_path.is_none() || state.password.is_empty() {
+                        println!("Please enter password and select path");
+                        return Command::none();
+                    }
+                    
+                    match check_decryption_key(state.aes_key_path.clone().unwrap(), state.password.clone()) {
+                        Ok(key) => {
+                            state.aes_key = key;
+
+                            state.password.clear();
+                            state.confirm_password.clear();
+
+                            //TODO: decrypt the accounts and update the state
+                            state.accounts = deserialize_accounts(&state.aes_key).unwrap();
+
+                            state.step = Step::PasswordManager;
+                        },
+                        Err(_) => {
+                            println!("Wrong password or path");
+                            return Command::none();
+                        }
+                    };
+
+                },
                 Message::DeleteAccount(index) => {
                     state.accounts.remove(index);
 
-                    let _ = serialize_accounts(&state.accounts, &state.symm);
+                    println!("Serialization with key: {:?}", state.aes_key);
+
+                    let _ = serialize_accounts(&state.accounts, &state.aes_key);
                     println!("Delete account at index: {}", index);
                 },
-                Message::Start => state.step = Step::StoreSecretKey,
+                Message::Start => state.step = Step::PasswordCreation,
                 Message::ShowPassword(index) => {
                     state.show_password = Some(index);
                     println!("Show password at index: {}", index);
@@ -163,7 +218,7 @@ impl Application for ModalExample {
                     state.accounts[state.edit_index.unwrap()].set_username(state.username.clone());
                     state.accounts[state.edit_index.unwrap()].set_key(state.password.clone());
 
-                    let _ = serialize_accounts(&state.accounts, &state.symm);
+                    let _ = serialize_accounts(&state.accounts, &state.aes_key);
 
                     state.edit_index = None;
                     state.password.clear();
@@ -196,8 +251,8 @@ impl Application for ModalExample {
                     state.confirm_password.clear();
                     
                     state.accounts.push(new_account);
-
-                    let _ = serialize_accounts(&state.accounts, &state.symm);
+                    println!("Serialization with key: {:?}", state.aes_key);
+                    let _ = serialize_accounts(&state.accounts, &state.aes_key);
                     
                     state.modal = None;
                 },
@@ -216,18 +271,6 @@ impl Application for ModalExample {
                 Message::UsernameChange(username) => {
                     state.username = username;
                 },
-                Message::SelectPath => {
-                    state.sk_path = select_path();
-                    println!("{:?}", state.sk_path);
-                    if !state.sk_path.is_none() {
-                        if is_key_created() {
-                            state.step = Step::PasswordManager;
-                        } else {
-                            generate_key_pair(state.sk_path.clone().unwrap());
-                        }
-                        state.step = Step::PasswordManager;
-                    }
-                }
                 _ => {}
             },
         }

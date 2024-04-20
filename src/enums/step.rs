@@ -6,6 +6,8 @@ pub mod step {
         StoreSecretKey,
         GetSecretKey,
         PasswordManager,
+        PasswordCreation,
+        PasswordCheck
     }
 
     impl Default for Step {
@@ -21,6 +23,8 @@ pub mod step {
                 Self::StoreSecretKey => Self::StoreSecretKey,
                 Self::GetSecretKey => Self::GetSecretKey,
                 Self::PasswordManager => Self::PasswordManager,
+                Self::PasswordCreation => Self::PasswordCreation,
+                Self::PasswordCheck => Self::PasswordCheck
             }
         }
     }
