@@ -2,7 +2,7 @@ pub mod edit_modal_view {
     use iced::{alignment::Horizontal, font, widget::{Button, Column, Container, Row, Text, TextInput}, Alignment, Element, Font, Length};
     use iced_aw::{Card, BOOTSTRAP_FONT};
 
-    use crate::{Message, State};
+    use crate::{custom_widget::error_text::error_text::error_text, Message, State};
     
     pub fn edit_modal_view(state: &State) -> Option<Element<'static, Message>> {
         Some(
@@ -19,9 +19,9 @@ pub mod edit_modal_view {
                     .padding(5)
                     .width(Length::Fill)
                     .push(
-                        Button::new(Text::new("Cancel").horizontal_alignment(Horizontal::Center))
+                        Button::new(Text::new("Generate").horizontal_alignment(Horizontal::Center))
                             .width(Length::Fill)
-                            .on_press(Message::CloseAddModal),
+                            .on_press(Message::GeneratePassword),
                     )
                     .push(
                         Button::new(Text::new("Ok").horizontal_alignment(Horizontal::Center))
@@ -37,12 +37,21 @@ pub mod edit_modal_view {
     }
 
     fn edit_modal_body(state: &State) -> Element<'static, Message> {
+        let error_text = match &state.error {
+            Some(error) => {
+                Some(error_text(error).horizontal_alignment(Horizontal::Center))
+            },
+            None => {
+                None
+            }
+        };
         Container::new(
             Column::new()
                 .align_items(Alignment::Center)
                 .max_width(600)
                 .padding(20)
                 .spacing(16)
+                .push_maybe(error_text)
                 .push(
                     TextInput::new("Host", &state.host_name)
                         .on_input(Message::HostChange)

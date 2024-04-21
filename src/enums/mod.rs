@@ -1,5 +1,6 @@
 
 pub mod step;
+pub mod error;
 
 #[derive(Debug)]
 pub enum Modal {

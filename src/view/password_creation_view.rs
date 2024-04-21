@@ -4,8 +4,18 @@ pub mod password_creation_view {
     };
     use iced_aw::BOOTSTRAP_FONT;
 
-    use crate::{custom_widget::circle_button::circle_button::CircleButtonStyle, Message, State};
+    use crate::{custom_widget::{circle_button::circle_button::CircleButtonStyle, error_text::error_text::error_text}, Message, State};
     pub fn password_creation_view(state: &State) -> Element<'static, Message> {
+
+        let error_text = match &state.error {
+            Some(error) => {
+                Some(error_text(error).horizontal_alignment(Horizontal::Center))
+            },
+            None => {
+                None
+            }
+        };
+        
         Container::new(
             Column::new()
                 .align_items(Alignment::Center)
@@ -16,6 +26,9 @@ pub mod password_creation_view {
                     text("Create your password")
                         .size(50)
                         .horizontal_alignment(Horizontal::Left),
+                )
+                .push_maybe(
+                    error_text
                 )
                 .push(
                     TextInput::new("Password", &state.password)

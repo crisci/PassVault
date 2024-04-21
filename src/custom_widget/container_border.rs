@@ -1,42 +1,13 @@
-use iced::{alignment::Horizontal, widget::{container, Text}, Background, Color, Renderer};
+use iced::{alignment::Horizontal, widget::{container, Text}};
 
 use crate::Message;
 
-use self::container_border::{ContainerBordered, FolderPathContainer};
+use self::container_border::FolderPathContainer;
 
 pub mod container_border {
     use iced::border::Radius;
     use iced::widget::container;
-    use iced::{Border, Color, Shadow, Theme};
-
-    #[derive(Debug, Clone, Default)]
-    pub struct ContainerBordered;
-
-
-    impl ContainerBordered {
-        pub fn new() -> Self { Self }
-    }
-
-
-    impl container::StyleSheet for ContainerBordered {
-        type Style = Theme;
-
-        fn appearance(&self, _: &Self::Style) -> container::Appearance {
-            container::Appearance {
-                border: Border {
-                    color: Color::BLACK,
-                    radius: Radius::from(25.),
-                    width: 2.
-                },
-                shadow: Shadow { 
-                    offset: iced::Vector { x: -2. , y: 2. },
-                    color: Color::BLACK,
-                    blur_radius: 5.
-                },
-                ..Default::default()
-            }
-        }
-    }
+    use iced::{Border, Color, Theme};
 
     #[derive(Debug, Clone, Copy, Default)]
     pub struct FolderPathContainer;
@@ -53,8 +24,8 @@ pub mod container_border {
         fn appearance(&self, _: &Self::Style) -> container::Appearance {
             container::Appearance {
                 border: Border {
-                    color: Color::from_linear_rgba(0., 0., 0., 0.8),
-                    radius: Radius::from(10.),
+                    color: Color::from_linear_rgba(0., 0., 0., 0.2),
+                    radius: Radius::from(5.),
                     width: 2.
                 },
                 ..Default::default()

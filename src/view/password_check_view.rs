@@ -1,8 +1,8 @@
 pub mod password_check_view {
-    use iced::{alignment::Horizontal, theme, widget::{button, container, row, text, Button, Column, Container, TextInput}, Alignment, Element, Font, Length, Padding};
+    use iced::{alignment::Horizontal, theme, widget::{button, row, text, Button, Column, Container, TextInput}, Alignment, Element, Font, Length, Padding};
     use iced_aw::BOOTSTRAP_FONT;
 
-    use crate::{custom_widget::{circle_button::circle_button::CircleButtonStyle, container_border::rounded_container, image_button::image_button::image_button}, Message, State};
+    use crate::{custom_widget::{circle_button::circle_button::CircleButtonStyle, container_border::rounded_container, error_text::error_text::error_text, image_button::image_button::image_button}, Message, State};
     pub fn password_check_view(state: &State) -> Element<'static, Message> {
 
         let folder_button = image_button("folder", Message::SelectPath).width(Length::FillPortion(1));
@@ -29,6 +29,15 @@ pub mod password_check_view {
             theme::Button::Primary,
         ))));
 
+        let error_text = match &state.error {
+            Some(error) => {
+                Some(error_text(error).horizontal_alignment(Horizontal::Center))
+            },
+            None => {
+                None
+            }
+        };
+
         Container::new(
             Column::new()
                 .align_items(Alignment::Center)
@@ -39,6 +48,9 @@ pub mod password_check_view {
                     text("Insert your password and upload the key file")
                         .size(50)
                         .horizontal_alignment(Horizontal::Left),
+                )
+                .push_maybe(
+                    error_text
                 )
                 .push(
                     TextInput::new("Password", &state.password)

@@ -3,14 +3,14 @@ pub mod account {
     use std::{
         fs::{self, File},
         io::Write,
-        path::PathBuf,
     };
 
+    use anyhow::Context;
     use serde::{Deserialize, Serialize};
 
-    use crate::utils::{decrypt_data, encrypt_data};
+    use crate::{enums::error::error::CryptoError, utils::{decrypt_data, encrypt_data}};
 
-    #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
     pub struct Account {
         host: String,
         username: String,
@@ -53,28 +53,25 @@ pub mod account {
     pub fn serialize_accounts(
         accounts: &Vec<Account>,
         symmetric_key: &[u8],
-    ) -> Result<(), String> {
-        let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
+    ) -> anyhow::Result<()> {
+        let dir = directories::BaseDirs::new().ok_or(CryptoError::Unknown)?;
         let passvault_dir = dir.data_local_dir().join("PassVault");
         let account_file_path = passvault_dir.join("accounts.dat");
 
         if !passvault_dir.exists() {
-            fs::create_dir_all(&passvault_dir).map_err(|err| format!("Error creating directory: {}", err))?;
+            fs::create_dir_all(&passvault_dir)?;
         }
-        let mut account_file = File::create(&account_file_path).map_err(|err| format!("Error creating file: {}", err))?;
-        let serialized = serde_json::to_string(accounts)
-            .map_err(|err| format!("Serialization error: {}", err))?;
-        println!("{}", serialized);
+        let mut account_file = File::create(&account_file_path)?;
+        let serialized = serde_json::to_string(accounts)?;
         let serialized_enc = encrypt_data(&serialized, symmetric_key).unwrap();
-        account_file.write_all(serialized_enc.as_bytes())
-            .map_err(|err| format!("Error writing to file: {}", err))?;
+        account_file.write_all(serialized_enc.as_bytes())?;
         Ok(())
     }
 
     pub fn deserialize_accounts(
         symmetric_key: &[u8],
-    ) -> Result<Vec<Account>, String> {
-        let dir = directories::BaseDirs::new().ok_or("Error getting base directories")?;
+    ) -> anyhow::Result<Vec<Account>> {
+        let dir = directories::BaseDirs::new().context(CryptoError::Unknown)?;
         let passvault_dir = dir.data_local_dir().join("PassVault");
         let account_file_path = passvault_dir.join("accounts.dat");
 
@@ -82,11 +79,13 @@ pub mod account {
             return Ok(Vec::new());
         }
 
-        let serialized_enc = fs::read(account_file_path).map_err(|err| format!("Error reading file: {}", err))?;
-        let serialized = String::from_utf8(serialized_enc).map_err(|err| format!("Error converting to string: {}", err))?;
-        let deserialized = decrypt_data(&serialized, symmetric_key).unwrap();
-        let accounts: Vec<Account> = serde_json::from_str(&deserialized)
-            .map_err(|err| format!("Deserialization error: {}", err))?;
+        let serialized_enc = fs::read(account_file_path)?;
+        if serialized_enc.is_empty() {
+            return Ok(Vec::new());
+        }
+        let serialized = String::from_utf8(serialized_enc)?;
+        let deserialized = decrypt_data(&serialized, symmetric_key)?;
+        let accounts: Vec<Account> = serde_json::from_str(&deserialized)?;
         Ok(accounts)
     }
 }

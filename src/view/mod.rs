@@ -15,7 +15,7 @@ pub mod welcome_view;
 pub mod password_creation_view;
 pub mod password_check_view;
 
-pub fn view_logic(state: &State) -> Element<'static, Message> {
+pub fn view_logic(state: &State) -> Element<'_, Message> {
     let content = match state.step {
         Step::StoreSecretKey => sk_view(&state),
         Step::Welcome => welcome_view(),

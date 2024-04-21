@@ -1,7 +1,7 @@
 pub mod welcome_view {
     use iced::{
         theme,
-        widget::{button, column, container, row, text, Button, Container},
+        widget::{button, column, row, text, Button, Container},
         Element, Font, Length, Padding,
     };
     use iced_aw::BOOTSTRAP_FONT;

@@ -1,10 +1,11 @@
 use std::{path::PathBuf, str::FromStr};
 
+use custom_widget::toast::toast::{Status, Toast};
 use enums::{step::step::Step, Modal};
 use iced::{alignment::Horizontal, font, widget::{container, text}, window::Position, Application, Command, Element, Length, Size, Theme
 };
 
-use utils::{check_decryption_key, generate_key_pair, is_key_created, select_path};
+use utils::{check_decryption_key, copy_to_clipboard, generate_key_pair, generate_password, is_key_created, select_path};
 
 use data_structure::account::account::{deserialize_accounts, serialize_accounts, Account};
 use view::view_logic;
@@ -58,7 +59,11 @@ enum Message {
     HostChange(String),
     SaveEdit,
     SelectPath,
-    ConfirmKeyPath
+    ConfirmKeyPath,
+    CopySuccess,
+    AddToast(String, Status),
+    CloseToast(usize),
+    GeneratePassword
 }
 
 #[derive(Debug)]
@@ -80,7 +85,9 @@ pub struct State {
     host_name: String,
     username: String,
     aes_key_path: Option<String>,
-    edit_index: Option<usize>
+    edit_index: Option<usize>,
+    error: Option<String>,
+    toasts: Vec<Toast>,
 }
 
 async fn load() -> Result<(), String> {
@@ -125,62 +132,77 @@ impl Application for ModalExample {
                 Message::PasswordChanged(password) => state.password = password,
                 Message::ConfirmPasswordChanged(password) => state.confirm_password = password,
                 Message::PasswordCreated => {
-                    if state.password != state.confirm_password {
-                        println!("Password not match!")
+                    if state.password.is_empty() {
+                        state.error = Some("Please insert password".to_string());
+                        return Command::none();
+                    } else  if state.confirm_password.is_empty() {
+                        state.error = Some("Please insert confirm password".to_string());
+                        return Command::none();  
+                    } else if state.password != state.confirm_password {
+                        state.error = Some("Password not match".to_string());
+                        state.password.clear();
+                        state.confirm_password.clear();
                     } else if state.password.len() < 8
                         || state.password.chars().all(char::is_alphanumeric)
                     {
-                        println!("Weak password!")
+                        state.error = Some("Weak password".to_string());
+                        state.password.clear();
+                        state.confirm_password.clear();
                     } else {
+                        state.error = None;
                         state.step = Step::StoreSecretKey;
-                        println!("Password create!")
                     }
                 }, 
                 Message::SelectPath => {
                     state.aes_key_path = select_path();
-                    println!("{:?}", state.aes_key_path);
+                    if state.aes_key_path.is_some() {
+                        state.error = None;
+                    }
                 },
                 Message::ConfirmKeyPath => {
                     if state.aes_key_path.is_none() {
-                        println!("Please select path");
+                        state.error = Some("Please select path".to_string());
                         return Command::none();
                     }
 
                     if !state.aes_key_path.is_none() && !PathBuf::from_str(state.aes_key_path.clone().unwrap().as_str()).unwrap().is_file() {
                         create_passvault_files();
-                        state.aes_key = generate_key_pair(state.aes_key_path.clone().unwrap(), state.password.clone());
+                        match generate_key_pair(state.aes_key_path.clone().unwrap(), state.password.clone()) {
+                            Ok(key) => {
+                                state.aes_key = key;
+                                state.password.clear();
+                                state.confirm_password.clear();
+                                state.error = None;
+                                state.step = Step::PasswordManager;
+                            },
+                            Err(_) => {
+                                state.error = Some("Error creating key".to_string());
+                                return Command::none();
+                            }
+                        }
                     }
-
-                    println!("{:?}", state.aes_key.clone());
-
-                    println!("{}", state.aes_key_path.clone().unwrap());
-                    
-                    state.password.clear();
-                    state.confirm_password.clear();
-
-                    state.step = Step::PasswordManager;
                 }
                 Message::Login => {
 
                     if state.aes_key_path.is_none() || state.password.is_empty() {
-                        println!("Please enter password and select path");
+                        state.error = Some("Please select path and insert password".to_string());
                         return Command::none();
                     }
                     
                     match check_decryption_key(state.aes_key_path.clone().unwrap(), state.password.clone()) {
                         Ok(key) => {
+                            state.error = None;
                             state.aes_key = key;
 
                             state.password.clear();
                             state.confirm_password.clear();
 
-                            //TODO: decrypt the accounts and update the state
                             state.accounts = deserialize_accounts(&state.aes_key).unwrap();
 
                             state.step = Step::PasswordManager;
                         },
                         Err(_) => {
-                            println!("Wrong password or path");
+                            state.error = Some("Wrong password or path".to_string());
                             return Command::none();
                         }
                     };
@@ -189,22 +211,40 @@ impl Application for ModalExample {
                 Message::DeleteAccount(index) => {
                     state.accounts.remove(index);
 
-                    println!("Serialization with key: {:?}", state.aes_key);
-
                     let _ = serialize_accounts(&state.accounts, &state.aes_key);
-                    println!("Delete account at index: {}", index);
                 },
                 Message::Start => state.step = Step::PasswordCreation,
                 Message::ShowPassword(index) => {
                     state.show_password = Some(index);
-                    println!("Show password at index: {}", index);
                 },
                 Message::HidePassword => {
                     state.show_password = None;
-                    println!("Hide password");
                 },
                 Message::CopyPassword(index) => {
-                    println!("Copy account at index: {}", index);
+                    let account = state.accounts.get(index);
+                    match account {
+                        Some(a) => {
+                            let key = a.get_key().clone();
+                            return Command::perform(copy_to_clipboard(key.clone()), |_| Message::CopySuccess);
+                        },
+                        None => {
+                            return Command::perform(tokio::time::sleep(std::time::Duration::from_millis(0)), |_| Message::AddToast("Error while copying to clipboard".into(), Status::Danger));
+                        }
+                    }
+                },
+                Message::CopySuccess => {
+                    return Command::perform(tokio::time::sleep(std::time::Duration::from_millis(0)), |_| Message::AddToast("Copied to clipboard".into(), Status::Success));
+                },
+                Message::AddToast(title, level) => {
+                    let toast = Toast {
+                        title,
+                        status: level,
+                        ..Default::default()
+                    };
+                    if !state.toasts.contains(&toast) { state.toasts.push(toast) }
+                },
+                Message::CloseToast(index) => {
+                    state.toasts.remove(index);
                 },
                 Message::EditAccount(index) => {
 
@@ -216,19 +256,24 @@ impl Application for ModalExample {
                     state.edit_index = Some(index);
 
                     state.modal = Some(Modal::EDIT);
-                    println!("Edit account at index: {}", index);
                 },
                 Message::SaveEdit => { 
 
-                    println!("{}", state.confirm_password);
-
-                    if state.password.len() < 8 && state.password.chars().all(char::is_alphanumeric) {
-                        println!("Weak password!");
+                    if state.password.is_empty() {
+                        state.error = Some("Please insert password".to_string());
+                        return Command::none();
+                    } else  if state.confirm_password.is_empty() {
+                        state.error = Some("Please insert confirm password".to_string());
+                        return Command::none();  
+                    } else if state.password.len() < 8 && state.password.chars().all(char::is_alphanumeric) {
+                        state.error = Some("Weak password".to_string());
                         return Command::none();
                     } else if state.password != state.confirm_password {
-                        println!("Password not match!");
+                        state.error = Some("Password not match".to_string());
                         return Command::none();
                     }
+
+                    state.error = None;
 
                     state.accounts[state.edit_index.unwrap()].set_host(state.host_name.clone());
                     state.accounts[state.edit_index.unwrap()].set_username(state.username.clone());
@@ -246,31 +291,44 @@ impl Application for ModalExample {
                 },
                 Message::AddAccount => {
                     state.modal = Some(Modal::ADD);
-                    println!("Add account");
                 },
                 Message::SaveAccount => {
-                    //TODO: Checks, encrypt and update json 
-
-                    if state.password.len() < 8 && state.password.chars().all(char::is_alphanumeric) {
-                        println!("Weak password!");
+                    
+                    if state.password.is_empty() {
+                        state.error = Some("Please insert password".to_string());
+                        return Command::none();
+                    } else  if state.confirm_password.is_empty() {
+                        state.error = Some("Please insert confirm password".to_string());
+                        return Command::none();  
+                    } else if state.password.len() < 8 && state.password.chars().all(char::is_alphanumeric) {
+                        state.error = Some("Weak password".to_string());
                         return Command::none();
                     } else if state.password != state.confirm_password {
-                        println!("Password not match!");
+                        state.error = Some("Password not match".to_string());
                         return Command::none();
                     }
 
+                    state.error = None;
                     let new_account = Account::new(state.host_name.clone(), state.username.clone(), state.password.clone());
 
                     state.password.clear();
                     state.host_name.clear();
                     state.username.clear();
                     state.confirm_password.clear();
-                    
+                    if state.accounts.contains(&new_account) {
+                        state.modal = None;
+                        return Command::perform(tokio::time::sleep(std::time::Duration::from_millis(0)), |_| Message::AddToast("Account already exist".into(), Status::Warning))
+                    }
                     state.accounts.push(new_account);
-                    println!("Serialization with key: {:?}", state.aes_key);
-                    let _ = serialize_accounts(&state.accounts, &state.aes_key);
-                    
                     state.modal = None;
+                    match serialize_accounts(&state.accounts, &state.aes_key) {
+                        Ok(_) => {
+                            return Command::perform(tokio::time::sleep(std::time::Duration::from_millis(0)), |_| Message::AddToast("Account correctly saved".into(), Status::Success))
+                        },
+                        Err(_) => {
+                            return Command::perform(tokio::time::sleep(std::time::Duration::from_millis(0)), |_| Message::AddToast("Ops, something went wrong!".into(), Status::Success))
+                        }
+                    }
                 },
                 Message::CloseAddModal => {
 
@@ -287,6 +345,11 @@ impl Application for ModalExample {
                 Message::UsernameChange(username) => {
                     state.username = username;
                 },
+                Message::GeneratePassword => {
+                    let rand_password = generate_password();
+                    state.password = rand_password.clone();
+                    state.confirm_password = rand_password.clone();
+                }
                 _ => {}
             },
         }

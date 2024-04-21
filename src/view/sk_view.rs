@@ -1,8 +1,8 @@
 pub mod sk_view {
-    use iced::{alignment::{Horizontal, Vertical}, theme, widget::{button, container, text, Button, Column, Container, Row}, Alignment, Element, Font, Length, Padding};
+    use iced::{alignment::Horizontal, theme, widget::{button, container, text, Button, Column, Container, Row}, Alignment, Element, Font, Length, Padding};
     use iced_aw::BOOTSTRAP_FONT;
 
-    use crate::{custom_widget::{circle_button::circle_button::CircleButtonStyle, container_border::rounded_container, image_button::image_button::image_button}, Message, State};
+    use crate::{custom_widget::{circle_button::circle_button::CircleButtonStyle, container_border::rounded_container, error_text::error_text::error_text, image_button::image_button::image_button}, Message, State};
 
 
     pub fn sk_view(state: &State) -> Element<'static, Message> {
@@ -31,12 +31,22 @@ pub mod sk_view {
             theme::Button::Primary,
         ))));
 
+
         let select_row = container(Row::new()
         .push(path_container)
         .push(folder_button)
         .align_items(Alignment::End))
         .center_x()
         .center_y();
+
+        let error_text = match &state.error {
+            Some(error) => {
+                Some(error_text(error).horizontal_alignment(Horizontal::Center))
+            },
+            None => {
+                None
+            }
+        };
 
         
 
@@ -51,6 +61,7 @@ pub mod sk_view {
                         .size(50)
                         .horizontal_alignment(Horizontal::Left),
                 )
+                .push_maybe(error_text)
                 .push(
                  select_row
                 )
