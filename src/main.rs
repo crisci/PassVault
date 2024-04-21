@@ -166,7 +166,13 @@ impl Application for ModalExample {
                     }
 
                     if !state.aes_key_path.is_none() && !PathBuf::from_str(state.aes_key_path.clone().unwrap().as_str()).unwrap().is_file() {
-                        create_passvault_files();
+                        match create_passvault_files() {
+                            Ok(_) => {state.error = None;},
+                            Err(_) => {
+                                state.error = Some("Error creating key".to_string());
+                                return Command::none();
+                            }
+                        }
                         match generate_key_pair(state.aes_key_path.clone().unwrap(), state.password.clone()) {
                             Ok(key) => {
                                 state.aes_key = key;

@@ -15,21 +15,24 @@ use ::rand::{thread_rng, Rng};
 use rfd::FileDialog;
 
 pub mod utils {
-    use std::{fs::File, path::PathBuf};
+    use std::{fs::{self, File}, path::PathBuf};
 
-    pub fn create_passvault_files() {
-        let dir = match directories::BaseDirs::new() {
-            Some(dir) => dir,
-            None => return,
-        };
-        let dir_str = match dir.data_local_dir().to_str() {
-            Some(s) => s,
-            None => return,
-        };
+    use anyhow::Context;
+
+    use crate::enums::error::error::CryptoError;
+
+    pub fn create_passvault_files() -> anyhow::Result<()> {
+        let dir = directories::BaseDirs::new().context(CryptoError::Unknown)?;
+        let dir_str = dir.data_local_dir().to_str().context(CryptoError::Unknown)?;
 
         let passvault_path = PathBuf::from(format!("{}/{}", dir_str, "PassVault"));
+        if !passvault_path.exists() {
+            fs::create_dir(&passvault_path).context("Error creating PassVault directory")?;
+        }
+
         let acccounts_path = passvault_path.join("accounts.dat");
-        File::create(&acccounts_path).expect("Error creating accounts file");
+        File::create(&acccounts_path).context("Error creating accounts file")?;
+        Ok(())
     }
 
     pub fn _pad16(s: &String) -> String {
