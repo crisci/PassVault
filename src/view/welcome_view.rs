@@ -26,7 +26,10 @@ pub mod welcome_view {
         ))));
         Container::new(
             column![
-                text("Welcome to PassVault!").size(50),
+                text("Welcome to PassVault!").size(50).font(Font {
+                    weight: iced::font::Weight::Semibold,
+                    ..BOOTSTRAP_FONT
+                }),
                 text("The place where your password are secure.").size(26),
                 row![start_button].align_items(iced::Alignment::Center)
             ]

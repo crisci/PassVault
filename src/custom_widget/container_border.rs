@@ -1,4 +1,4 @@
-use iced::{alignment::Horizontal, widget::{container, Text}};
+use iced::{theme::Text as TextTheme, alignment::Horizontal, widget::{container, Text}, Color};
 
 use crate::Message;
 
@@ -36,7 +36,7 @@ pub mod container_border {
 
 
 pub fn rounded_container<'a>(text: String) -> iced::widget::Container<'a, Message> {
-    container(Text::new(text.clone()).horizontal_alignment(Horizontal::Left))
+    container(Text::new(text.clone()).style(TextTheme::Color(Color::from_rgb(0.3, 0.3, 0.3))).horizontal_alignment(Horizontal::Left))
         .style(iced::theme::Container::Custom(Box::new(FolderPathContainer::new())))
-        .padding(6.0)
+        .padding(10.0)
 }

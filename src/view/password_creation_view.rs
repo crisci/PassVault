@@ -1,21 +1,24 @@
 pub mod password_creation_view {
     use iced::{
-        alignment::Horizontal, theme, widget::{button, container, text, Column, Container, TextInput}, Alignment, Element, Font, Length
+        alignment::Horizontal,
+        theme,
+        widget::{button, container, text, Column, Container, TextInput},
+        Alignment, Element, Font, Length,
     };
     use iced_aw::BOOTSTRAP_FONT;
 
-    use crate::{custom_widget::{circle_button::circle_button::CircleButtonStyle, error_text::error_text::error_text}, Message, State};
+    use crate::{
+        custom_widget::{
+            circle_button::circle_button::CircleButtonStyle, error_text::error_text::error_text,
+        },
+        Message, State,
+    };
     pub fn password_creation_view(state: &State) -> Element<'static, Message> {
-
         let error_text = match &state.error {
-            Some(error) => {
-                Some(error_text(error).horizontal_alignment(Horizontal::Center))
-            },
-            None => {
-                None
-            }
+            Some(error) => Some(error_text(error).horizontal_alignment(Horizontal::Center)),
+            None => None,
         };
-        
+
         Container::new(
             Column::new()
                 .align_items(Alignment::Center)
@@ -24,12 +27,14 @@ pub mod password_creation_view {
                 .spacing(16)
                 .push(
                     text("Create your password")
+                        .font(Font {
+                            weight: iced::font::Weight::Semibold,
+                            ..BOOTSTRAP_FONT
+                        })
                         .size(50)
                         .horizontal_alignment(Horizontal::Left),
                 )
-                .push_maybe(
-                    error_text
-                )
+                .push_maybe(error_text)
                 .push(
                     TextInput::new("Password", &state.password)
                         .on_input(Message::PasswordChanged)
@@ -50,11 +55,11 @@ pub mod password_creation_view {
                             weight: iced::font::Weight::Semibold,
                             ..BOOTSTRAP_FONT
                         }))
-                            .padding(8)
-                            .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
-                                theme::Button::Primary,
-                            ))))
-                            .on_press(Message::PasswordCreated),
+                        .padding(8)
+                        .style(theme::Button::Custom(Box::new(CircleButtonStyle::new(
+                            theme::Button::Primary,
+                        ))))
+                        .on_press(Message::PasswordCreated),
                     )
                     .align_x(Horizontal::Right)
                     .width(Length::Fill),
